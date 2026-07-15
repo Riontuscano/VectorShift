@@ -4,11 +4,14 @@ export const InputNode = ({ id, data }) => {
   const name = data?.inputName || id.replace('customInput-', 'input_');
   const type = data?.inputType || 'Text';
 
+  const value = data?.inputValue || '';
+  const subtitleText = value ? `${name} = "${value}"` : `${name} · ${type}`;
+
   return (
     <BaseNode
       id={id}
       title="Input"
-      subtitle={`${name} · ${type}`}
+      subtitle={subtitleText}
       colorTheme="#16a34a"
       outputs={[{ id: `${id}-value` }]}
       icon={
