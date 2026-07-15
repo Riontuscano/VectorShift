@@ -57,4 +57,10 @@ export const useStore = create((set, get) => ({
         edges: get().edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId),
       });
     },
+    setPipeline: (nodes, edges) => {
+      set({
+        nodes: nodes || [],
+        edges: edges || [],
+      });
+    },
   }));
