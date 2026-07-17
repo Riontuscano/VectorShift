@@ -11,7 +11,6 @@ import { LLMNode } from './nodes/llmNode';
 import { OutputNode } from './nodes/outputNode';
 import { TextNode } from './nodes/textNode';
 import { APINode } from './nodes/apiNode';
-import { DBNode } from './nodes/dbNode';
 import { RouterNode } from './nodes/routerNode';
 import { SwitchNode } from './nodes/switchNode';
 import { CodeNode } from './nodes/codeNode';
@@ -29,7 +28,6 @@ const nodeTypes = {
   customOutput: OutputNode,
   text: TextNode,
   api: APINode,
-  db: DBNode,
   router: RouterNode,
   switch: SwitchNode,
   codeRunner: CodeNode,

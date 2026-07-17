@@ -117,32 +117,6 @@ export const executeNode = async (node, inputs) => {
         };
       }
     }
-    case 'db': {
-      const dbType = d.dbType || 'PostgreSQL';
-      const query = d.query || '';
-      const params = inputs[`${node.id}-params`] || null;
-      try {
-        const res = await fetch('http://localhost:8000/pipelines/db', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ dbType, query, params })
-        });
-        if (!res.ok) {
-          const errData = await res.json();
-          throw new Error(errData.detail || 'Database execution failed');
-        }
-        const data = await res.json();
-        return {
-          [`${node.id}-results`]: data.results,
-        };
-      } catch (err) {
-        return {
-          [`${node.id}-results`]: `[DB Error] ${err.message}`,
-        };
-      }
-    }
     case 'router': {
       const condition = d.condition || 'contains';
       const checkValue = d.value || '';
@@ -319,6 +293,8 @@ export const executePipeline = async ({
       message: 'Debugger started. Use "Step" or "Resume" controls.',
     });
 
+    const skippedNodes = new Set();
+
     for (const node of sortedNodes) {
       // Check if debug was cancelled/aborted
       const currentDbgState = useStore.getState();
@@ -327,8 +303,33 @@ export const executePipeline = async ({
         return;
       }
 
-      // Gather resolved inputs
+      // Check if this node should be skipped
       const incomingEdges = edges.filter(e => e.target === node.id);
+      let shouldSkip = false;
+      if (incomingEdges.length > 0) {
+        shouldSkip = incomingEdges.some(edge => {
+          if (skippedNodes.has(edge.source)) {
+            return true;
+          }
+          const sourceOutputs = nodeOutputs[edge.source] || {};
+          return !(edge.sourceHandle in sourceOutputs);
+        });
+      }
+
+      if (shouldSkip) {
+        skippedNodes.add(node.id);
+        updateNodeField(node.id, 'status', 'skipped');
+        nodeOutputs[node.id] = {};
+        addExecutionLog({
+          nodeId: node.id,
+          nodeType: node.type,
+          status: 'skipped',
+          message: `Skipped: Routed away or pre-requisite skipped.`,
+        });
+        continue;
+      }
+
+      // Gather resolved inputs
       const resolvedInputs = {};
       incomingEdges.forEach(edge => {
         const sourceVal = (nodeOutputs[edge.source] || {})[edge.sourceHandle];
@@ -411,6 +412,7 @@ export const executePipeline = async ({
     const queue = nodes.filter(node => inDegree[node.id] === 0);
     const inDegreesDynamic = { ...inDegree };
     const processedNodes = new Set();
+    const skippedNodes = new Set();
 
     addExecutionLog({
       status: 'info',
@@ -418,71 +420,95 @@ export const executePipeline = async ({
     });
 
     const runNodeProcess = async (node) => {
-      // Resolve inputs
+      // Check if this node should be skipped
       const incomingEdges = edges.filter(e => e.target === node.id);
-      const resolvedInputs = {};
-      incomingEdges.forEach(edge => {
-        const sourceVal = (nodeOutputs[edge.source] || {})[edge.sourceHandle];
-        resolvedInputs[edge.targetHandle] = sourceVal;
-      });
-
-      updateNodeField(node.id, 'status', 'running');
-      addExecutionLog({
-        nodeId: node.id,
-        nodeType: node.type,
-        status: 'running',
-        message: `Executing ${node.id}...`,
-        inputs: resolvedInputs,
-      });
-
-      const startTime = performance.now();
-      try {
-        const outputs = await executeNode(node, resolvedInputs);
-        const duration = (performance.now() - startTime).toFixed(1);
-        nodeOutputs[node.id] = outputs;
-
-        updateNodeField(node.id, 'status', 'completed');
-        updateNodeField(node.id, 'outputVal', JSON.stringify(outputs));
-
-        addExecutionLog({
-          nodeId: node.id,
-          nodeType: node.type,
-          status: 'completed',
-          message: `Completed in ${duration}ms`,
-          inputs: resolvedInputs,
-          outputs,
-        });
-
-        // Trigger descendants
-        const nextNodes = [];
-        (adj[node.id] || []).forEach(edgeInfo => {
-          inDegreesDynamic[edgeInfo.target]--;
-          if (inDegreesDynamic[edgeInfo.target] === 0) {
-            const nextNode = nodes.find(n => n.id === edgeInfo.target);
-            if (nextNode && !processedNodes.has(nextNode.id)) {
-              processedNodes.add(nextNode.id);
-              nextNodes.push(nextNode);
-            }
+      let shouldSkip = false;
+      if (incomingEdges.length > 0) {
+        shouldSkip = incomingEdges.some(edge => {
+          if (skippedNodes.has(edge.source)) {
+            return true;
           }
+          const sourceOutputs = nodeOutputs[edge.source] || {};
+          return !(edge.sourceHandle in sourceOutputs);
         });
+      }
 
-        // Small visual delay
-        await new Promise(r => setTimeout(r, 600));
-
-        // Recursively run next layers
-        if (nextNodes.length > 0) {
-          await Promise.all(nextNodes.map(n => runNodeProcess(n)));
-        }
-
-      } catch (err) {
-        updateNodeField(node.id, 'status', 'error');
+      if (shouldSkip) {
+        skippedNodes.add(node.id);
+        updateNodeField(node.id, 'status', 'skipped');
+        nodeOutputs[node.id] = {};
         addExecutionLog({
           nodeId: node.id,
           nodeType: node.type,
-          status: 'error',
-          message: `Error: ${err.message}`,
+          status: 'skipped',
+          message: `Skipped: Routed away or pre-requisite skipped.`,
         });
-        throw err;
+      } else {
+        updateNodeField(node.id, 'status', 'running');
+        
+        // Resolve inputs
+        const resolvedInputs = {};
+        incomingEdges.forEach(edge => {
+          const sourceVal = (nodeOutputs[edge.source] || {})[edge.sourceHandle];
+          resolvedInputs[edge.targetHandle] = sourceVal;
+        });
+
+        addExecutionLog({
+          nodeId: node.id,
+          nodeType: node.type,
+          status: 'running',
+          message: `Executing ${node.id}...`,
+          inputs: resolvedInputs,
+        });
+
+        const startTime = performance.now();
+        try {
+          const outputs = await executeNode(node, resolvedInputs);
+          const duration = (performance.now() - startTime).toFixed(1);
+          nodeOutputs[node.id] = outputs;
+
+          updateNodeField(node.id, 'status', 'completed');
+          updateNodeField(node.id, 'outputVal', JSON.stringify(outputs));
+
+          addExecutionLog({
+            nodeId: node.id,
+            nodeType: node.type,
+            status: 'completed',
+            message: `Completed in ${duration}ms`,
+            inputs: resolvedInputs,
+            outputs,
+          });
+        } catch (err) {
+          updateNodeField(node.id, 'status', 'error');
+          addExecutionLog({
+            nodeId: node.id,
+            nodeType: node.type,
+            status: 'error',
+            message: `Error: ${err.message}`,
+          });
+          throw err;
+        }
+      }
+
+      // Small visual delay
+      await new Promise(r => setTimeout(r, 600));
+
+      // Trigger descendants
+      const nextNodes = [];
+      (adj[node.id] || []).forEach(edgeInfo => {
+        inDegreesDynamic[edgeInfo.target]--;
+        if (inDegreesDynamic[edgeInfo.target] === 0) {
+          const nextNode = nodes.find(n => n.id === edgeInfo.target);
+          if (nextNode && !processedNodes.has(nextNode.id)) {
+            processedNodes.add(nextNode.id);
+            nextNodes.push(nextNode);
+          }
+        }
+      });
+
+      // Recursively run next layers
+      if (nextNodes.length > 0) {
+        await Promise.all(nextNodes.map(n => runNodeProcess(n)));
       }
     };
 

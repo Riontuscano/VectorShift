@@ -27,12 +27,12 @@ const sLabel = { fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)'
 
 const nodeColors = {
   customInput: '#16a34a', customOutput: '#e11d48', llm: '#7c3aed', text: '#ca8a04',
-  api: '#2563eb', db: '#0891b2', router: '#ea580c', switch: '#8b5cf6',
+  api: '#2563eb', router: '#ea580c', switch: '#8b5cf6',
   codeRunner: '#10b981', notification: '#f43f5e', delay: '#db2777', json: '#0d9488',
 };
 const nodeLabels = {
   customInput: 'Input', customOutput: 'Output', llm: 'LLM', text: 'Text',
-  api: 'API', db: 'Database', router: 'Router', switch: 'Switch',
+  api: 'API', router: 'Router', switch: 'Switch',
   codeRunner: 'JS Code', notification: 'Notify', delay: 'Delay', json: 'JSON',
 };
 
@@ -56,10 +56,7 @@ const renderProps = (node, update) => {
       <div style={gap}><label style={sLabel}>Endpoint URL</label><input type="text" value={d.url || 'https://api.example.com/data'} onChange={e => update(node.id, 'url', e.target.value)} style={sInput}/></div>
       <div><label style={sLabel}>HTTP Method</label><select value={d.method || 'GET'} onChange={e => update(node.id, 'method', e.target.value)} style={sSelect}><option>GET</option><option>POST</option><option>PUT</option><option>DELETE</option></select></div>
     </>);
-    case 'db': return (<>
-      <div style={gap}><label style={sLabel}>Database</label><select value={d.dbType || 'PostgreSQL'} onChange={e => update(node.id, 'dbType', e.target.value)} style={sSelect}><option>PostgreSQL</option><option>MySQL</option><option>MongoDB</option><option>Redis</option></select></div>
-      <div><label style={sLabel}>Query</label><textarea value={d.query || 'SELECT * FROM users LIMIT 10;'} onChange={e => update(node.id, 'query', e.target.value)} rows="4" style={sTextarea}/></div>
-    </>);
+
     case 'router': {
       const showTargetValue = !['isEmpty', 'isNotEmpty'].includes(d.condition || 'contains');
       return (<>

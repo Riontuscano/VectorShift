@@ -8,7 +8,6 @@ export const PipelineToolbar = () => {
             <DraggableNode type='customOutput' label='Output' />
             <DraggableNode type='text' label='Text' />
             <DraggableNode type='api' label='API' />
-            <DraggableNode type='db' label='Database' />
             <DraggableNode type='router' label='Router' />
             <DraggableNode type='switch' label='Switch' />
             <DraggableNode type='codeRunner' label='JS Code' />
