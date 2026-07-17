@@ -5,6 +5,7 @@ import { PipelineUI } from './ui';
 import { SubmitButton } from './submit';
 import { AnimatedThemeToggler } from './components/ui/animated-theme-toggler';
 import { showAlert, showPrompt } from './utils/alert';
+import { DebuggerPanel } from './components/debuggerPanel';
 
 /* ── Sidebar field styles ── */
 const sInput = {
@@ -26,11 +27,13 @@ const sLabel = { fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)'
 
 const nodeColors = {
   customInput: '#16a34a', customOutput: '#e11d48', llm: '#7c3aed', text: '#ca8a04',
-  api: '#2563eb', db: '#0891b2', router: '#ea580c', delay: '#db2777', json: '#0d9488',
+  api: '#2563eb', db: '#0891b2', router: '#ea580c', switch: '#8b5cf6',
+  codeRunner: '#10b981', notification: '#f43f5e', delay: '#db2777', json: '#0d9488',
 };
 const nodeLabels = {
   customInput: 'Input', customOutput: 'Output', llm: 'LLM', text: 'Text',
-  api: 'API', db: 'Database', router: 'Router', delay: 'Delay', json: 'JSON',
+  api: 'API', db: 'Database', router: 'Router', switch: 'Switch',
+  codeRunner: 'JS Code', notification: 'Notify', delay: 'Delay', json: 'JSON',
 };
 
 /* ── Properties Panel ── */
@@ -57,9 +60,148 @@ const renderProps = (node, update) => {
       <div style={gap}><label style={sLabel}>Database</label><select value={d.dbType || 'PostgreSQL'} onChange={e => update(node.id, 'dbType', e.target.value)} style={sSelect}><option>PostgreSQL</option><option>MySQL</option><option>MongoDB</option><option>Redis</option></select></div>
       <div><label style={sLabel}>Query</label><textarea value={d.query || 'SELECT * FROM users LIMIT 10;'} onChange={e => update(node.id, 'query', e.target.value)} rows="4" style={sTextarea}/></div>
     </>);
-    case 'router': return (<>
-      <div style={gap}><label style={sLabel}>Condition</label><select value={d.condition || 'contains'} onChange={e => update(node.id, 'condition', e.target.value)} style={sSelect}><option value="equals">Equals</option><option value="contains">Contains</option><option value="startsWith">Starts With</option><option value="greaterThan">Greater Than</option></select></div>
-      <div><label style={sLabel}>Target Value</label><input type="text" value={d.value || 'admin'} onChange={e => update(node.id, 'value', e.target.value)} style={sInput}/></div>
+    case 'router': {
+      const showTargetValue = !['isEmpty', 'isNotEmpty'].includes(d.condition || 'contains');
+      return (<>
+        <div style={gap}>
+          <label style={sLabel}>Condition</label>
+          <select value={d.condition || 'contains'} onChange={e => update(node.id, 'condition', e.target.value)} style={sSelect}>
+            <option value="equals">Equals</option>
+            <option value="contains">Contains</option>
+            <option value="startsWith">Starts With</option>
+            <option value="endsWith">Ends With</option>
+            <option value="greaterThan">Greater Than</option>
+            <option value="lessThan">Less Than</option>
+            <option value="isEmpty">Is Empty</option>
+            <option value="isNotEmpty">Is Not Empty</option>
+            <option value="regex">Matches Regex</option>
+          </select>
+        </div>
+        {showTargetValue && (
+          <div>
+            <label style={sLabel}>Target Value</label>
+            <input type="text" value={d.value || 'admin'} onChange={e => update(node.id, 'value', e.target.value)} style={sInput}/>
+          </div>
+        )}
+      </>);
+    }
+    case 'switch': {
+      const cases = d.cases || ['Case 1'];
+      return (<>
+        <div style={gap}>
+          <label style={sLabel}>Cases</label>
+          {cases.map((c, index) => (
+            <div key={index} style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+              <input
+                type="text"
+                value={c}
+                onChange={e => {
+                  const newCases = [...cases];
+                  newCases[index] = e.target.value;
+                  update(node.id, 'cases', newCases);
+                }}
+                style={sInput}
+                placeholder={`Case ${index + 1}`}
+              />
+              <button
+                onClick={() => {
+                  const newCases = cases.filter((_, i) => i !== index);
+                  update(node.id, 'cases', newCases);
+                }}
+                style={{
+                  padding: '0 10px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-default)',
+                  background: 'var(--bg-input)',
+                  color: '#dc2626',
+                  cursor: 'pointer',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          <button
+            onClick={() => {
+              update(node.id, 'cases', [...cases, `Case ${cases.length + 1}`]);
+            }}
+            style={{
+              width: '100%',
+              padding: '8px',
+              borderRadius: '8px',
+              border: '1px dashed var(--border-hover)',
+              background: 'transparent',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: '600',
+              marginTop: '4px',
+              fontFamily: "'Smooch Sans', sans-serif",
+            }}
+          >
+            + Add Case
+          </button>
+        </div>
+      </>);
+    }
+    case 'codeRunner': return (<>
+      <div style={gap}>
+        <label style={sLabel}>Input Ports (Comma-separated)</label>
+        <input
+          type="text"
+          value={d.inputPorts || 'a, b'}
+          onChange={e => update(node.id, 'inputPorts', e.target.value)}
+          style={sInput}
+          placeholder="e.g. arg1, arg2"
+        />
+      </div>
+      <div>
+        <label style={sLabel}>JavaScript Code</label>
+        <textarea
+          value={d.code || 'return inputs.a + inputs.b;'}
+          onChange={e => update(node.id, 'code', e.target.value)}
+          rows="8"
+          style={sTextarea}
+          placeholder="// 'inputs' holds value mapped from inputs"
+        />
+      </div>
+    </>);
+    case 'notification': return (<>
+      <div style={gap}>
+        <label style={sLabel}>Notification Type</label>
+        <select
+          value={d.notifType || 'Alert'}
+          onChange={e => update(node.id, 'notifType', e.target.value)}
+          style={sSelect}
+        >
+          <option>Alert</option>
+          <option>Slack Webhook</option>
+        </select>
+      </div>
+      {d.notifType === 'Slack Webhook' && (
+        <div style={gap}>
+          <label style={sLabel}>Slack Webhook URL</label>
+          <input
+            type="text"
+            value={d.webhookUrl || ''}
+            onChange={e => update(node.id, 'webhookUrl', e.target.value)}
+            style={sInput}
+            placeholder="https://hooks.slack.com/services/..."
+          />
+        </div>
+      )}
+      <div>
+        <label style={sLabel}>Message Template</label>
+        <textarea
+          value={d.messageTemplate || 'Pipeline finished with value: {{input}}'}
+          onChange={e => update(node.id, 'messageTemplate', e.target.value)}
+          rows="4"
+          style={sTextarea}
+          placeholder="Use {{input}} to output inputs"
+        />
+      </div>
     </>);
     case 'delay': return (<div><label style={sLabel}>Duration (ms)</label><input type="number" value={d.delayMs || 1000} onChange={e => update(node.id, 'delayMs', Number(e.target.value))} min="0" step="100" style={sInput}/></div>);
     case 'json': return (
@@ -91,6 +233,39 @@ const ToggleBtn = ({ onClick, direction }) => (
 
 function App() {
   const nodes = useStore(s => s.nodes);
+  const edges = useStore(s => s.edges);
+
+  const exportPipeline = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ nodes, edges }, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href",     dataStr);
+    downloadAnchor.setAttribute("download", "pipeline-export.json");
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    showAlert('Success', 'Pipeline exported successfully!', 'success');
+  };
+
+  const importPipeline = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (Array.isArray(data.nodes) && Array.isArray(data.edges)) {
+          useStore.getState().setPipeline(data.nodes, data.edges);
+          showAlert('Success', 'Pipeline imported successfully!', 'success');
+        } else {
+          showAlert('Invalid File', 'Invalid pipeline format. Must contain nodes and edges arrays.', 'error');
+        }
+      } catch (err) {
+        showAlert('Error', 'Failed to parse JSON file.', 'error');
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = null;
+  };
   const updateNodeField = useStore(s => s.updateNodeField);
   const selectedNode = nodes.find(n => n.selected);
   const [leftOpen, setLeftOpen] = useState(true);
@@ -99,8 +274,6 @@ function App() {
   const [modalResult, setModalResult] = useState(null);
   const [modalError, setModalError] = useState(null);
   const [history, setHistory] = useState([]);
-
-  const edges = useStore(s => s.edges);
 
   const fetchHistory = async () => {
     try {
@@ -118,53 +291,50 @@ function App() {
     fetchHistory();
   }, []);
 
-  const [newWorkflowName, setNewWorkflowName] = useState('');
-
-  const saveWorkflow = async (name) => {
-    if (!name.trim()) {
-      showAlert('Validation Error', 'Please enter a valid workflow name.', 'warning');
+  const saveWorkflow = async (slot) => {
+    if (!slot) {
+      showAlert('Validation Error', 'Invalid slot selection.', 'warning');
       return;
     }
     try {
-      const res = await fetch(`http://localhost:8000/pipelines/save/${encodeURIComponent(name.trim())}`, {
+      const res = await fetch(`http://localhost:8000/pipelines/save/${encodeURIComponent(slot)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nodes, edges })
       });
       if (res.ok) {
-        setNewWorkflowName('');
         fetchHistory();
-        showAlert('Success', `Workflow "${name}" saved successfully!`, 'success');
+        showAlert('Success', `Workflow "${slot}" saved successfully!`, 'success');
       }
     } catch (err) {
       showAlert('Error', 'Failed to save workflow: ' + err.message, 'error');
     }
   };
 
-  const loadWorkflow = async (name) => {
+  const loadWorkflow = async (slot) => {
     try {
-      const res = await fetch(`http://localhost:8000/pipelines/load/${encodeURIComponent(name)}`);
+      const res = await fetch(`http://localhost:8000/pipelines/load/${encodeURIComponent(slot)}`);
       if (res.ok) {
         const data = await res.json();
         useStore.getState().setPipeline(data.nodes, data.edges);
-        showAlert('Success', `Workflow "${name}" loaded successfully!`, 'success');
+        showAlert('Success', `Workflow "${slot}" loaded successfully!`, 'success');
       }
     } catch (err) {
       showAlert('Error', 'Failed to load workflow: ' + err.message, 'error');
     }
   };
 
-  const clearWorkflow = async (name) => {
+  const clearWorkflow = async (slot) => {
     try {
-      const res = await fetch(`http://localhost:8000/pipelines/clear/${encodeURIComponent(name)}`, {
+      const res = await fetch(`http://localhost:8000/pipelines/clear/${encodeURIComponent(slot)}`, {
         method: 'DELETE'
       });
       if (res.ok) {
         fetchHistory();
-        showAlert('Cleared', `Workflow "${name}" has been cleared.`, 'success');
+        showAlert('Cleared', `Slot ${slot} has been cleared.`, 'success');
       }
     } catch (err) {
-      showAlert('Error', 'Failed to clear workflow: ' + err.message, 'error');
+      showAlert('Error', 'Failed to clear slot: ' + err.message, 'error');
     }
   };
 
@@ -232,114 +402,95 @@ function App() {
             Saved Workflows
           </div>
           
-          {/* Save new workflow row */}
-          <div style={{ display: 'flex', gap: '6px', marginBottom: '4px' }}>
-            <input
-              type="text"
-              placeholder="Workflow name..."
-              value={newWorkflowName}
-              onChange={e => setNewWorkflowName(e.target.value)}
-              style={{
-                flex: 1,
-                padding: '6px 10px',
-                background: 'var(--bg-input)',
-                border: '1px solid var(--border-default)',
-                borderRadius: '6px',
-                color: 'var(--text-primary)',
-                fontSize: '13px',
-                outline: 'none',
-                fontFamily: 'inherit',
-              }}
-            />
-            <button
-              onClick={() => saveWorkflow(newWorkflowName)}
-              style={{
-                padding: '6px 12px',
-                background: 'var(--text-primary)',
-                border: 'none',
-                color: 'var(--bg-card)',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: '700',
-                fontFamily: 'inherit',
-                transition: 'opacity 150ms',
-              }}
-              onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
-              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-            >
-              Save
-            </button>
-          </div>
-
           {/* Workflows list with scroll */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto', paddingRight: '2px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '250px', overflowY: 'auto', paddingRight: '2px' }}>
             {history.length === 0 ? (
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', padding: '12px 0' }}>
-                No saved workflows
+                No slots available
               </div>
             ) : (
-              history.map((wf) => (
-                <div key={wf.name} style={{
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: '10px',
-                  padding: '10px 12px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px',
-                  fontSize: '13px',
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: '700', color: 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '120px' }} title={wf.name}>
-                      {wf.name}
-                    </span>
-                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                      {wf.nodes_count} Nodes
-                    </span>
+              history.map((wf) => {
+                const isSlotEmpty = wf.empty;
+                return (
+                  <div key={wf.slot} style={{
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: '10px',
+                    padding: '10px 12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px',
+                    fontSize: '13px',
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
+                        Slot {wf.slot}
+                      </span>
+                      <span style={{ fontSize: '11px', color: isSlotEmpty ? 'var(--text-muted)' : 'var(--text-secondary)' }}>
+                        {isSlotEmpty ? 'Empty' : `${wf.nodes_count} Nodes`}
+                      </span>
+                    </div>
+                    
+                    {!isSlotEmpty && wf.saved_at && (
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '-2px' }}>
+                        Saved: {new Date(wf.saved_at).toLocaleDateString()} {new Date(wf.saved_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    )}
+                    
+                    <div style={{ display: 'flex', gap: '4px', marginTop: '2px' }}>
+                      {isSlotEmpty ? (
+                        <button onClick={() => saveWorkflow(wf.slot)} style={{
+                          flex: 1, padding: '6px 4px', fontSize: '11px', fontWeight: '700',
+                          border: '1px solid var(--border-default)', background: 'var(--bg-input)',
+                          color: 'var(--text-primary)', borderRadius: '6px', cursor: 'pointer',
+                          fontFamily: 'inherit', textTransform: 'uppercase', transition: 'all 150ms'
+                        }}
+                          onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--border-hover)'}
+                          onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-default)'}
+                        >
+                          Save Workflow
+                        </button>
+                      ) : (
+                        <>
+                          <button onClick={() => saveWorkflow(wf.slot)} style={{
+                            flex: 1, padding: '4px', fontSize: '11px', fontWeight: '700',
+                            border: '1px solid var(--border-default)', background: 'var(--bg-input)',
+                            color: 'var(--text-secondary)', borderRadius: '6px', cursor: 'pointer',
+                            fontFamily: 'inherit', textTransform: 'uppercase', transition: 'all 150ms'
+                          }}
+                            onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--border-hover)'}
+                            onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-default)'}
+                          >
+                            Overwrite
+                          </button>
+                          <button onClick={() => loadWorkflow(wf.slot)} style={{
+                            flex: 1, padding: '4px', fontSize: '11px', fontWeight: '700',
+                            border: '1px solid var(--border-default)', background: 'var(--bg-input)',
+                            color: 'var(--text-primary)', borderRadius: '6px', cursor: 'pointer',
+                            fontFamily: 'inherit', textTransform: 'uppercase', transition: 'all 150ms'
+                          }}
+                            onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--border-hover)'}
+                            onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-default)'}
+                          >
+                            Load
+                          </button>
+                          <button onClick={() => clearWorkflow(wf.slot)} style={{
+                            padding: '4px 6px', fontSize: '11px', fontWeight: '700',
+                            border: '1px solid var(--border-default)', background: 'var(--bg-input)',
+                            color: '#dc2626', borderRadius: '6px', cursor: 'pointer',
+                            fontFamily: 'inherit', transition: 'all 150ms'
+                          }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220,38,38,0.06)'; e.currentTarget.style.borderColor = '#dc2626'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-input)'; e.currentTarget.style.borderColor = 'var(--border-default)'; }}
+                          >
+                            🗑
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '-2px' }}>
-                    Saved: {new Date(wf.saved_at).toLocaleDateString()} {new Date(wf.saved_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                  
-                  <div style={{ display: 'flex', gap: '4px', marginTop: '2px' }}>
-                    <button onClick={() => saveWorkflow(wf.name)} style={{
-                      flex: 1, padding: '4px', fontSize: '11px', fontWeight: '700',
-                      border: '1px solid var(--border-default)', background: 'var(--bg-input)',
-                      color: 'var(--text-secondary)', borderRadius: '6px', cursor: 'pointer',
-                      fontFamily: 'inherit', textTransform: 'uppercase', transition: 'all 150ms'
-                    }}
-                      onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--border-hover)'}
-                      onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-default)'}
-                    >
-                      Overwrite
-                    </button>
-                    <button onClick={() => loadWorkflow(wf.name)} style={{
-                      flex: 1, padding: '4px', fontSize: '11px', fontWeight: '700',
-                      border: '1px solid var(--border-default)', background: 'var(--bg-input)',
-                      color: 'var(--text-primary)', borderRadius: '6px', cursor: 'pointer',
-                      fontFamily: 'inherit', textTransform: 'uppercase', transition: 'all 150ms'
-                    }}
-                      onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--border-hover)'}
-                      onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-default)'}
-                    >
-                      Load
-                    </button>
-                    <button onClick={() => clearWorkflow(wf.name)} style={{
-                      padding: '4px 6px', fontSize: '11px', fontWeight: '700',
-                      border: '1px solid var(--border-default)', background: 'var(--bg-input)',
-                      color: '#dc2626', borderRadius: '6px', cursor: 'pointer',
-                      fontFamily: 'inherit', transition: 'all 150ms'
-                    }}
-                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220,38,38,0.06)'; e.currentTarget.style.borderColor = '#dc2626'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-input)'; e.currentTarget.style.borderColor = 'var(--border-default)'; }}
-                    >
-                      🗑
-                    </button>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -362,9 +513,14 @@ function App() {
           <AnimatedThemeToggler />
           <button
             onClick={async () => {
-              const name = await showPrompt('Save Workflow', 'Enter a name for this workflow...');
-              if (name && name.trim()) {
-                saveWorkflow(name.trim());
+              const slot = await showPrompt('Save Workflow', 'Enter workflow name (e.g. MyWorkflow):');
+              if (slot) {
+                const cleanedSlot = slot.trim();
+                if (cleanedSlot) {
+                  saveWorkflow(cleanedSlot);
+                } else {
+                  showAlert('Validation Error', 'Invalid workflow name.', 'warning');
+                }
               }
             }}
             style={{
@@ -380,9 +536,46 @@ function App() {
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
             Save
           </button>
+          
+          {/* Import JSON */}
+          <button
+            onClick={() => document.getElementById('pipeline-import-file').click()}
+            style={{
+              background: 'var(--bg-card)', border: '1px solid var(--border-default)', borderRadius: '10px',
+              color: 'var(--text-secondary)', padding: '8px 16px', fontSize: '14px', fontWeight: '600',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+              transition: 'all 150ms', outline: 'none', fontFamily: "'Smooch Sans', sans-serif",
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-hover)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-default)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Import
+          </button>
+          <input id="pipeline-import-file" type="file" accept=".json" onChange={importPipeline} style={{ display: 'none' }} />
+
+          {/* Export JSON */}
+          <button
+            onClick={exportPipeline}
+            style={{
+              background: 'var(--bg-card)', border: '1px solid var(--border-default)', borderRadius: '10px',
+              color: 'var(--text-secondary)', padding: '8px 16px', fontSize: '14px', fontWeight: '600',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+              transition: 'all 150ms', outline: 'none', fontFamily: "'Smooch Sans', sans-serif",
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-hover)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-default)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export
+          </button>
+
           <SubmitButton onSubmission={handleSubmission} />
         </div>
         <PipelineUI />
+        <DebuggerPanel onSubmission={handleSubmission} />
       </div>
 
       {/* Right toggle (when collapsed) */}

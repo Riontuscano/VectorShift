@@ -25,6 +25,9 @@ export const BaseNode = ({
   } else if (status === 'completed') {
     borderStyle = '1px solid #16a34a';
     boxShadowStyle = '0 0 12px rgba(22, 163, 74, 0.2)';
+  } else if (status === 'skipped') {
+    borderStyle = '1px dashed var(--border-default)';
+    boxShadowStyle = 'none';
   } else if (status === 'error') {
     borderStyle = '1px solid #dc2626';
     boxShadowStyle = '0 0 12px rgba(220, 38, 38, 0.2)';
@@ -58,7 +61,8 @@ export const BaseNode = ({
         '--node-theme': colorTheme,
         '--node-glow': `${colorTheme}30`,
         paddingBottom: (!hasLabels && inputs.length === 0 && outputs.length === 0 && !children) ? '0' : '8px',
-        transition: 'border-color 200ms ease, box-shadow 200ms ease',
+        transition: 'border-color 200ms ease, box-shadow 200ms ease, opacity 200ms ease',
+        opacity: status === 'skipped' ? 0.5 : 1,
       }}
       className="custom-node-wrapper"
     >
@@ -116,8 +120,20 @@ export const BaseNode = ({
             letterSpacing: '0.04em',
             padding: '2px 6px',
             borderRadius: '4px',
-            background: status === 'running' ? 'rgba(37, 99, 235, 0.1)' : status === 'completed' ? 'rgba(22, 163, 74, 0.1)' : 'rgba(220, 38, 38, 0.1)',
-            color: status === 'running' ? '#2563eb' : status === 'completed' ? '#16a34a' : '#dc2626',
+            background: status === 'running' 
+              ? 'rgba(37, 99, 235, 0.1)' 
+              : status === 'completed' 
+                ? 'rgba(22, 163, 74, 0.1)' 
+                : status === 'skipped'
+                  ? 'rgba(107, 114, 128, 0.1)'
+                  : 'rgba(220, 38, 38, 0.1)',
+            color: status === 'running' 
+              ? '#2563eb' 
+              : status === 'completed' 
+                ? '#16a34a' 
+                : status === 'skipped'
+                  ? '#6b7280'
+                  : '#dc2626',
             lineHeight: '1',
             marginLeft: 'auto',
           }}>

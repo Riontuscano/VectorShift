@@ -13,6 +13,9 @@ import { TextNode } from './nodes/textNode';
 import { APINode } from './nodes/apiNode';
 import { DBNode } from './nodes/dbNode';
 import { RouterNode } from './nodes/routerNode';
+import { SwitchNode } from './nodes/switchNode';
+import { CodeNode } from './nodes/codeNode';
+import { NotificationNode } from './nodes/notificationNode';
 import { DelayNode } from './nodes/delayNode';
 import { JSONNode } from './nodes/jsonNode';
 
@@ -28,6 +31,9 @@ const nodeTypes = {
   api: APINode,
   db: DBNode,
   router: RouterNode,
+  switch: SwitchNode,
+  codeRunner: CodeNode,
+  notification: NotificationNode,
   delay: DelayNode,
   json: JSONNode,
 };
@@ -98,6 +104,8 @@ export const PipelineUI = () => {
         event.dataTransfer.dropEffect = 'move';
     }, []);
 
+    const [gridType, setGridType] = useState('dots');
+
     return (
         <>
         <div ref={reactFlowWrapper} className="react-flow-container" style={{width: '100%', height: '100%'}}>
@@ -115,10 +123,66 @@ export const PipelineUI = () => {
                 snapGrid={[gridSize, gridSize]}
                 connectionLineType='smoothstep'
             >
-                <Background color="#D5D0CB" gap={gridSize} />
+                {gridType !== 'none' && (
+                  <Background
+                    variant={gridType}
+                    color="var(--grid-color)"
+                    gap={gridSize}
+                  />
+                )}
                 <Controls />
                 <MiniMap />
             </ReactFlow>
+
+            {/* Dynamic Grid Controls */}
+            <div style={{
+              position: 'absolute',
+              left: '14px',
+              bottom: '14px',
+              zIndex: 10,
+              display: 'flex',
+              gap: '4px',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-default)',
+              borderRadius: '8px',
+              padding: '4px',
+              boxShadow: 'var(--shadow-md)',
+            }}>
+              {['dots', 'lines', 'none'].map((type) => (
+                <button
+                  key={type}
+                  onClick={() => setGridType(type)}
+                  style={{
+                    padding: '5px 10px',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: gridType === type ? 'var(--text-primary)' : 'transparent',
+                    color: gridType === type ? 'var(--bg-card)' : 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    transition: 'all 150ms',
+                    fontFamily: "'Smooch Sans', sans-serif",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (gridType !== type) {
+                      e.currentTarget.style.background = 'var(--accent-soft)';
+                      e.currentTarget.style.color = 'var(--text-primary)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (gridType !== type) {
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.color = 'var(--text-secondary)';
+                    }
+                  }}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
         </div>
         </>
     )

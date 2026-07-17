@@ -11,6 +11,12 @@ import {
 export const useStore = create((set, get) => ({
     nodes: [],
     edges: [],
+    nodeIDs: {},
+    executionLogs: [],
+    isDebugging: false,
+    debugPaused: false,
+    currentNodeId: null,
+    debugResolvePromise: null,
     getNodeID: (type) => {
         const newIDs = {...get().nodeIDs};
         if (newIDs[type] === undefined) {
@@ -62,5 +68,33 @@ export const useStore = create((set, get) => ({
         nodes: nodes || [],
         edges: edges || [],
       });
+    },
+    addExecutionLog: (log) => {
+      set((state) => ({
+        executionLogs: [
+          ...state.executionLogs,
+          {
+            ...log,
+            id: Math.random().toString(36).substring(2, 9),
+            timestamp: new Date().toLocaleTimeString(),
+          },
+        ],
+      }));
+    },
+    clearExecutionLogs: () => set({ executionLogs: [] }),
+    setDebuggingState: (fields) => set(fields),
+    triggerStep: () => {
+      const { debugResolvePromise } = get();
+      if (debugResolvePromise) {
+        debugResolvePromise();
+        set({ debugPaused: false, debugResolvePromise: null });
+      }
+    },
+    triggerResume: () => {
+      const { debugResolvePromise } = get();
+      if (debugResolvePromise) {
+        debugResolvePromise();
+        set({ isDebugging: false, debugPaused: false, debugResolvePromise: null, currentNodeId: null });
+      }
     },
   }));

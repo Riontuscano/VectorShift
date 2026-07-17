@@ -1,24 +1,22 @@
 import { useState } from 'react';
 import { useStore } from './store';
-import { topologicalSort, executeNode } from './executor';
+import { executePipeline } from './executor';
 
 export const SubmitButton = ({ onSubmission }) => {
   const nodes = useStore(state => state.nodes);
   const edges = useStore(state => state.edges);
   const updateNodeField = useStore(state => state.updateNodeField);
+  const addExecutionLog = useStore(state => state.addExecutionLog);
+  const clearExecutionLogs = useStore(state => state.clearExecutionLogs);
+  const setDebuggingState = useStore(state => state.setDebuggingState);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
     setLoading(true);
-
-    // 1. Clear previous execution states in store
-    nodes.forEach(node => {
-      updateNodeField(node.id, 'status', 'idle');
-      updateNodeField(node.id, 'outputVal', null);
-    });
+    clearExecutionLogs();
 
     try {
-      // 2. Query backend for pipeline topology DAG check
+      // 1. Query backend for pipeline topology DAG check
       const response = await fetch('http://localhost:8000/pipelines/parse', {
         method: 'POST',
         headers: {
@@ -33,48 +31,32 @@ export const SubmitButton = ({ onSubmission }) => {
 
       const backendData = await response.json();
 
-      // 3. If there is a cycle (not a DAG), abort and show warning modal
+      // 2. If there is a cycle (not a DAG), abort and show warning modal
       if (!backendData.is_dag) {
-        // Find a node to mark as error or just show error
         nodes.forEach(n => updateNodeField(n.id, 'status', 'error'));
+        addExecutionLog({
+          status: 'error',
+          message: 'Pipeline contains circular dependency loops. Must be a DAG.',
+        });
         throw new Error('Pipeline contains circular dependency loops. Graph must be a Directed Acyclic Graph (DAG) to execute.');
       }
 
-      // 4. Run local topological execution engine
-      const sortedNodes = topologicalSort(nodes, edges);
-      if (!sortedNodes) {
-        throw new Error('Topological sort failed. Graph contains cycles.');
-      }
-
-      const nodeOutputs = {}; // Maps: nodeId -> { handleId: value }
-
-      for (const node of sortedNodes) {
-        // Set node to active/running state
-        updateNodeField(node.id, 'status', 'running');
-
-        // Resolve inputs from connected edges
-        const incomingEdges = edges.filter(e => e.target === node.id);
-        const resolvedInputs = {};
-        incomingEdges.forEach(edge => {
-          const sourceOutputs = nodeOutputs[edge.source] || {};
-          const sourceVal = sourceOutputs[edge.sourceHandle];
-          resolvedInputs[edge.targetHandle] = sourceVal;
-        });
-
-        // Run node execution processor (simulated/mocked)
-        const outputs = await executeNode(node, resolvedInputs);
-        nodeOutputs[node.id] = outputs;
-
-        // Visual delay so user can trace the pulse wave on canvas
-        await new Promise(resolve => setTimeout(resolve, 800));
-
-        // Mark node as successfully completed
-        updateNodeField(node.id, 'status', 'completed');
-        updateNodeField(node.id, 'outputVal', JSON.stringify(outputs));
-      }
-
-      // 5. Submit final topological outputs to parent overlay modal
-      onSubmission({ ...backendData, executionResult: nodeOutputs }, null);
+      // 3. Run execution engine in normal (parallel) mode
+      await executePipeline({
+        nodes,
+        edges,
+        isDebugMode: false,
+        updateNodeField,
+        addExecutionLog,
+        setDebuggingState,
+        onSubmission: (res, err) => {
+          if (err) {
+            onSubmission(null, err);
+          } else {
+            onSubmission(res, null);
+          }
+        },
+      });
 
     } catch (err) {
       onSubmission(null, err.message || 'Failed to execute pipeline.');

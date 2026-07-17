@@ -1,13 +1,26 @@
 import { BaseNode } from './baseNode';
 
+const CONDITION_LABELS = {
+  equals: 'Equals',
+  contains: 'Contains',
+  startsWith: 'Starts With',
+  endsWith: 'Ends With',
+  greaterThan: 'Greater Than',
+  lessThan: 'Less Than',
+  isEmpty: 'Is Empty',
+  isNotEmpty: 'Is Not Empty',
+  regex: 'Matches Regex',
+};
+
 export const RouterNode = ({ id, data }) => {
   const condition = data?.condition || 'contains';
+  const displayCondition = CONDITION_LABELS[condition] || condition;
 
   return (
     <BaseNode
       id={id}
       title="Router"
-      subtitle={`If ${condition}`}
+      subtitle={`If ${displayCondition}`}
       colorTheme="#ea580c"
       inputs={[{ id: `${id}-input`, label: 'Input' }]}
       outputs={[
