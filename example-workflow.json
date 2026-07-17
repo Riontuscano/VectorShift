@@ -1,0 +1,115 @@
+{
+    "nodes": [
+        {
+            "id": "customInput-1",
+            "type": "customInput",
+            "position": {
+                "x": 50,
+                "y": 180
+            },
+            "data": {
+                "id": "customInput-1",
+                "nodeType": "customInput",
+                "inputName": "role_input",
+                "inputValue": "admin",
+                "inputType": "Text"
+            }
+        },
+        {
+            "id": "switch-1",
+            "type": "switch",
+            "position": {
+                "x": 280,
+                "y": 140
+            },
+            "data": {
+                "id": "switch-1",
+                "nodeType": "switch",
+                "cases": [
+                    "admin",
+                    "user"
+                ]
+            }
+        },
+        {
+            "id": "codeRunner-1",
+            "type": "codeRunner",
+            "position": {
+                "x": 550,
+                "y": 50
+            },
+            "data": {
+                "id": "codeRunner-1",
+                "nodeType": "codeRunner",
+                "inputPorts": "inputVal",
+                "code": "return inputs.inputVal + ' role verified successfully.';"
+            }
+        },
+        {
+            "id": "notification-1",
+            "type": "notification",
+            "position": {
+                "x": 550,
+                "y": 280
+            },
+            "data": {
+                "id": "notification-1",
+                "nodeType": "notification",
+                "notifType": "Alert",
+                "messageTemplate": "Access denied for role: {{input}}"
+            }
+        },
+        {
+            "id": "customOutput-1",
+            "type": "customOutput",
+            "position": {
+                "x": 820,
+                "y": 100
+            },
+            "data": {
+                "id": "customOutput-1",
+                "nodeType": "customOutput",
+                "outputName": "output_message",
+                "outputType": "Text"
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "e-input-to-switch",
+            "source": "customInput-1",
+            "sourceHandle": "customInput-1-value",
+            "target": "switch-1",
+            "targetHandle": "switch-1-input",
+            "type": "smoothstep",
+            "animated": true
+        },
+        {
+            "id": "e-switch-admin-to-code",
+            "source": "switch-1",
+            "sourceHandle": "switch-1-case-0",
+            "target": "codeRunner-1",
+            "targetHandle": "codeRunner-1-inputVal",
+            "type": "smoothstep",
+            "animated": true
+        },
+        {
+            "id": "e-switch-default-to-notify",
+            "source": "switch-1",
+            "sourceHandle": "switch-1-default",
+            "target": "notification-1",
+            "targetHandle": "notification-1-input",
+            "type": "smoothstep",
+            "animated": true
+        },
+        {
+            "id": "e-code-to-output",
+            "source": "codeRunner-1",
+            "sourceHandle": "codeRunner-1-result",
+            "target": "customOutput-1",
+            "targetHandle": "customOutput-1-value",
+            "type": "smoothstep",
+            "animated": true
+        }
+    ]
+}
