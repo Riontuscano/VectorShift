@@ -1,281 +1,350 @@
-# 🌐 VectorShift - Visual Workflow Builder & Pipeline Parser
-
-An intuitive, premium node-based visual workflow builder designed for composing LLM pipelines, API integrations, routing logic, and advanced automation flows. Built with a React + React Flow frontend and a FastAPI backend.
-
----
-
-## 📸 Website Preview
-
-Here is a visual preview of the workflow builder in action. You can replace the image below with your own custom screenshot by saving it to `screenshots/dashboard_preview.png`.
-
 <div align="center">
-  <img src="./screenshots/dashboard_preview.png" alt="VectorShift Pipeline Builder Screenshot" width="90%" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);" />
+
+# ⚡ VectorShift
+
+**A visual, node-based workflow builder for composing LLM pipelines, API calls, and branching automation — with a real step-through debugger.**
+
+Drag nodes onto a canvas, wire them together, hit run, and watch execution flow through the graph node by node.
+
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)](https://react.dev)
+[![React Flow](https://img.shields.io/badge/React_Flow-11-FF0072?logo=diagramsdotnet&logoColor=white)](https://reactflow.dev)
+[![Zustand](https://img.shields.io/badge/Zustand-4-443E38)](https://zustand-demo.pmnd.rs)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.139-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://python.org)
+[![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?logo=mongodb&logoColor=white)](https://mongodb.com/atlas)
+[![Vercel](https://img.shields.io/badge/Frontend-Vercel-000000?logo=vercel&logoColor=white)](https://vercel.com)
+[![Render](https://img.shields.io/badge/Backend-Render-46E3B7?logo=render&logoColor=white)](https://render.com)
+
+<img src="./screenshots/dashboard-preview.png" alt="VectorShift workflow builder" width="92%" />
+
 </div>
 
 ---
 
-## ✨ Key Features
+## What it does
 
-### 🎨 Frontend (React + React Flow)
-* **Custom Node Abstraction (`BaseNode`)**: A unified, reusable wrapper for all nodes. This abstract base class handles header logic, status indicator rings, customizable input/output ports, theme configuration, styling, and dynamic rows.
-* **9 Specialized Nodes**:
-  - **LLM Node**: Connects system and prompt inputs to LLM inference models.
-  - **API Node**: Configures custom API calls (GET/POST) with URL, header, and body data.
-  - **Text Node**: Features an auto-adjusting textarea (scales dynamically with typing length) and **dynamic variable handles** (e.g., typing `{{ variable }}` automatically spawns a corresponding input port on the left).
-  - **Delay Node**: Introduces timed pauses in execution.
-  - **JSON Node**: Parses and formats raw JSON data.
-  - **Router & Switch Nodes**: Implements conditional branching logic based on incoming data.
-  - **Notification Node**: Broadcasts alerts or system webhooks.
-  - **Input / Output Nodes**: Form-based entry/exit points for workflow parameters.
-* **Premium Glassmorphic Styling**: Dark mode UI built with vanilla CSS, smooth grid layouts, custom transition animations, and status indicators (`running`, `completed`, `skipped`, `error`).
+VectorShift turns a directed graph into an executable program. Each node is a small unit of work —
+call a model, hit an endpoint, branch on a condition, run a snippet of JavaScript — and edges carry
+values between them. The whole graph is validated as a DAG before anything runs.
 
-### ⚙️ Backend (FastAPI)
-* **Directed Acyclic Graph (DAG) Parser**: Traverses the layout structure using cycle-detection DFS to determine if it is a valid, loop-free DAG.
-* **Save/Load Workflow Slots**: Persists and restores pipelines in specific slots (both dynamically in MongoDB or fallback in-memory stores).
-* **LLM Groq Proxy**: Directly executes LLM requests via Groq (`llama-3.3-70b-versatile`).
-* **API Proxy**: Handles cross-origin requests securely, executing API node calls from the backend server.
-* **History Log**: Saves and retrieves historical pipeline execution data.
+| | |
+|---|---|
+| 🎯 **11 node types** | LLM, API, Router, Switch, JS Code, Text templating, JSON, Delay, Notify, Input, Output |
+| 🐛 **Step-through debugger** | Pause before every node, inspect resolved inputs and outputs, then Step or Resume |
+| ⚡ **Parallel execution** | Independent branches run concurrently; dependents wait on their inputs |
+| 🔀 **Branch skipping** | Nodes downstream of an untaken branch are marked `skipped`, not failed |
+| 🧬 **Dynamic ports** | Type `{{name}}` in a Text node and an input port appears for it |
+| 🔁 **DAG validation** | Server-side cycle detection rejects loops before execution |
+| 💾 **Save / load slots** | Persist pipelines to MongoDB, with automatic in-memory fallback |
+| 📦 **Import / export** | Round-trip an entire pipeline as JSON |
+| 🌗 **Light & dark themes** | Warm light default, animated toggle |
 
 ---
 
-## 🛠️ Project Structure
+## Node reference
 
-```bash
-├── README.md                # Root project documentation
-├── .env.example             # Backend environment template (copy to .env)
-├── render.yaml              # Render Blueprint for the backend
-├── screenshots/             # Workflow Builder screenshots
-│   └── dashboard_preview.png
-├── frontend/                # React frontend application
-│   ├── src/
-│   │   ├── nodes/           # Node definitions (baseNode, textNode, apiNode, etc.)
-│   │   ├── components/      # UI components (Canvas, Toolbar)
-│   │   ├── store.js         # Zustand global state store
-│   │   ├── config.js        # API base URL (reads REACT_APP_API_URL)
-│   │   └── submit.js        # Backend API triggers
-│   ├── .env.example         # Frontend environment template
-│   ├── vercel.json          # Vercel build configuration
-│   └── package.json
-└── backend/                 # FastAPI backend application
-    ├── main.py              # Backend server & pipeline parser logic
-    └── requirements.txt     # Python dependencies
+| Node | Inputs | Outputs | What it does |
+|---|---|---|---|
+| **Input** | — | `value` | Entry point. Supplies a literal value to the pipeline. |
+| **Output** | `value` | — | Exit point. Collected and shown in the run summary. |
+| **LLM** | `System`, `Prompt` | `Response` | Proxies to Groq (`llama-3.3-70b-versatile`) through the backend. |
+| **Text** | *dynamic* | `output` | Template string. Every `{{name}}` spawns a matching input port. |
+| **API** | `Payload` | `Response`, `Status` | HTTP request executed server-side, so CORS never blocks it. |
+| **Router** | `Input` | `True`, `False` | Two-way branch across 9 conditions (equals, contains, regex, numeric comparison, …). |
+| **Switch** | `Input` | `Case 1..N`, `Default` | N-way branch on exact match. |
+| **JS Code** | *dynamic* | `Result` | Runs a JavaScript snippet. Input ports are configurable and arrive as an `inputs` object. |
+| **JSON** | `Raw` | `Parsed`, `Error` | Parses and optionally pretty-prints. Parse failures route to `Error`. |
+| **Delay** | `In` | `Out` | Passes its value through after a configurable pause. |
+| **Notify** | `Input` | — | Fires a browser alert or posts to a Slack webhook. |
+
+Only the branch that matches produces a value. Everything downstream of the branch that *didn't*
+match is marked `skipped` and left unexecuted — so a Router genuinely routes, rather than running
+both sides.
+
+---
+
+## Architecture
+
+```mermaid
+graph LR
+    subgraph Browser["🖥️  Frontend — Vercel"]
+        UI["React Flow canvas"]
+        Store["Zustand store<br/>nodes · edges · logs"]
+        Exec["Execution engine<br/>topological + parallel"]
+        UI <--> Store
+        Store <--> Exec
+    end
+
+    subgraph Server["⚙️  Backend — Render"]
+        API["FastAPI"]
+        DAG["DAG validator<br/>DFS cycle detection"]
+        Proxy["LLM + HTTP proxies"]
+        API --> DAG
+        API --> Proxy
+    end
+
+    DB[("MongoDB Atlas<br/>saved slots")]
+    Groq[["Groq API"]]
+
+    Exec -->|"POST /pipelines/parse"| API
+    Exec -->|"POST /pipelines/llm"| API
+    Exec -->|"POST /pipelines/api_proxy"| API
+    API <--> DB
+    Proxy --> Groq
 ```
 
----
-
-## 🚀 Getting Started
-
-### 1. Prerequisites
-- **Node.js** (v16.0.0 or higher)
-- **Python** (v3.8 or higher)
-- **MongoDB** (Optional, falls back to an in-memory database automatically if not detected)
+**The pipeline actually executes in the browser.** The backend validates the graph, proxies calls
+that a browser can't safely make itself (API keys, CORS), and persists saved workflows. That keeps
+per-node status updates instant, with no polling.
 
 ---
 
-### 2. Backend Setup
-1. Navigate to the `backend` directory:
-   ```bash
-   cd backend
-   ```
-2. Create and activate a Python virtual environment:
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   ```
-3. Install the required dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-4. Copy the environment template and fill it in. Every value is optional for local
-   development — without `GROQ_API_KEY` only the LLM node is unavailable, and without
-   a reachable `MONGO_DB` the backend falls back to an in-memory store automatically:
-   ```bash
-   cp ../.env.example ../.env
-   ```
-5. Run the FastAPI development server:
-   ```bash
-   uvicorn main:app --reload
-   ```
-   *The backend will be available at [http://localhost:8000](http://localhost:8000).
-   Health check: [http://localhost:8000/health](http://localhost:8000/health).*
+## Quick start
+
+**Prerequisites** — Node.js 18+, Python 3.10+, and optionally MongoDB. Without Mongo the backend
+transparently falls back to an in-memory store.
+
+### Backend
+
+```bash
+cd backend
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+cp ../.env.example ../.env        # optional — see table below
+uvicorn main:app --reload
+```
+
+→ http://localhost:8000 · health check at [`/health`](http://localhost:8000/health)
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+→ http://localhost:3000 (defaults to the backend above; override with `REACT_APP_API_URL`)
+
+### Environment
+
+| Variable | Where | Required | Notes |
+|---|---|---|---|
+| `MONGO_DB` | backend | no | Atlas connection string. Omit → in-memory store, wiped on restart. |
+| `GROQ_API_KEY` | backend | no | Only the LLM node needs it. Everything else works without. |
+| `ALLOWED_ORIGINS` | backend | prod | Comma-separated origins. Defaults to `*`. |
+| `ENVIRONMENT` | backend | no | `production` disables auto-reload. |
+| `REACT_APP_API_URL` | frontend | prod | Backend base URL, no trailing slash. **Inlined at build time.** |
+
+> `.env` is gitignored. Use `.env.example` as the template and never commit real credentials.
 
 ---
 
-### 3. Frontend Setup
-1. Navigate to the `frontend` directory:
-   ```bash
-   cd frontend
-   ```
-2. Install the package dependencies:
-   ```bash
-   npm install
-   ```
-3. *(Optional)* Point the app at a non-default backend:
-   ```bash
-   cp .env.example .env.local     # then edit REACT_APP_API_URL
-   ```
-   Skip this and it defaults to `http://localhost:8000`.
-4. Start the React development server:
-   ```bash
-   npm run dev
-   ```
-   *The frontend will open in your browser at [http://localhost:3000](http://localhost:3000).*
+## API
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/health` | Liveness probe. Reports whether Mongo or the in-memory store is active. |
+| `POST` | `/pipelines/parse` | Validates the graph, returns node/edge counts and `is_dag`. |
+| `POST` | `/pipelines/llm` | Groq chat-completion proxy. |
+| `POST` | `/pipelines/api_proxy` | Server-side HTTP request on behalf of an API node. |
+| `POST` | `/pipelines/save/{slot}` | Save a pipeline to a named slot. |
+| `GET` | `/pipelines/load/{slot}` | Load a saved pipeline. |
+| `GET` | `/pipelines/list` | List slots with metadata. |
+| `DELETE` | `/pipelines/clear/{slot}` | Empty a slot. |
+| `POST` | `/pipelines/history/save` | Record an execution. |
+| `GET` | `/pipelines/history/list` | 50 most recent executions. |
+| `POST` | `/pipelines/parse-form` | Same as `/parse`, accepting form-encoded input. |
+
+Interactive docs are served at `/docs` once the backend is running.
 
 ---
 
-## ☁️ Deployment
+## Project structure
 
-The two halves deploy independently: **backend on Render**, **frontend on Vercel**.
-Deploy the backend first — the frontend needs its URL at build time.
+```
+├── render.yaml                  # Render Blueprint (backend)
+├── .env.example                 # Backend env template
+├── .github/workflows/
+│   └── keep-alive.yml           # Pings /health to defeat free-tier sleep
+├── backend/
+│   ├── main.py                  # FastAPI app, DAG validator, proxies
+│   └── requirements.txt
+└── frontend/
+    ├── vercel.json              # Build config + SPA rewrite
+    ├── .env.example
+    └── src/
+        ├── App.js               # Layout, properties panel, save/load
+        ├── ui.js                # React Flow canvas
+        ├── store.js             # Zustand store
+        ├── executor.js          # Execution engine (normal + debug)
+        ├── config.js            # API base URL
+        ├── components/
+        │   └── debuggerPanel.js # Logs, Run/Debug/Step/Resume
+        └── nodes/               # baseNode.js + 11 node types
+```
 
-### 1. Backend → Render
+`baseNode.js` is the shared wrapper every node builds on — it owns the header, status ring, port
+layout, and theming, so a new node type is usually just a props declaration.
 
-Either route works. The Blueprint is less error-prone; the manual route is
-useful if you already created the service.
+---
 
-#### Option A — Blueprint (recommended)
+## Deployment
 
-Push this repo to GitHub, then in the Render dashboard choose
-**New → Blueprint** and select it. Render reads [`render.yaml`](./render.yaml)
-from the repo root and provisions the service, prompting for the three secret
-values. Nothing else to configure.
+Frontend on **Vercel**, backend on **Render**. Deploy the backend first — the frontend bakes its
+URL in at build time.
 
-#### Option B — Manual setup
+<details>
+<summary><b>1 · Backend → Render</b></summary>
 
-**New → Web Service**, connect the repo, then set:
+<br>
+
+**Blueprint (recommended).** Dashboard → **New → Blueprint** → select this repo. Render reads
+[`render.yaml`](./render.yaml) and provisions everything, prompting for secrets.
+
+**Manual.** **New → Web Service**, then:
 
 | Setting | Value |
 |---|---|
-| Language / Runtime | `Python 3` |
-| Branch | `main` |
-| **Root Directory** | `backend` |
+| Root Directory | `backend` |
 | Build Command | `pip install --upgrade pip && pip install -r requirements.txt` |
 | Start Command | `uvicorn main:app --host 0.0.0.0 --port $PORT` |
 | Health Check Path | `/health` |
-| Instance Type | `Free` |
 
-The two settings people get wrong here are **Root Directory** — leave it blank
-and the build fails with `requirements.txt not found` — and **`$PORT`**, which
-must be passed through verbatim. Render assigns the port at runtime; a
-hardcoded `--port 8000` makes the health check time out and Render kills the
-deploy as unhealthy.
+Two settings people get wrong: leaving **Root Directory** blank fails the build with
+`requirements.txt not found`, and hardcoding `--port 8000` instead of `$PORT` makes the health check
+time out, after which Render kills the deploy as unhealthy.
 
-#### Environment variables (both options)
-
-| Variable | Required | Notes |
-|---|---|---|
-| `ALLOWED_ORIGINS` | recommended | Your Vercel URL, e.g. `https://your-app.vercel.app`. Comma-separate multiple origins, no spaces, no trailing slashes. Leave unset and it defaults to `*`, which is fine for a smoke test but should not stay that way. |
-| `MONGO_DB` | no | MongoDB Atlas connection string. Omit to use the in-memory store, which is **wiped on every restart and not shared between instances**. |
-| `GROQ_API_KEY` | no | Needed only by the LLM node; every other node works without it. |
-| `ENVIRONMENT` | preset | `production` — disables uvicorn auto-reload. |
-| `PYTHON_VERSION` | preset | `3.12.7`. |
-| `PORT` | — | **Do not set.** Render injects it. |
-
-#### Verify
+Set `ALLOWED_ORIGINS`, `MONGO_DB`, and `GROQ_API_KEY` under Environment. Never set `PORT` — Render
+injects it. Verify with:
 
 ```bash
-curl https://<your-service>.onrender.com/health
-# {"status":"ok","database":"mongodb"}      <- Atlas connected
-# {"status":"ok","database":"in-memory"}    <- no/unreachable MONGO_DB
+curl https://<service>.onrender.com/health
+# {"status":"ok","database":"mongodb"}     ✅ Atlas connected
+# {"status":"ok","database":"in-memory"}   ⚠️ no/unreachable MONGO_DB
 ```
 
-> **Free-tier note:** Render spins idle free services down. The first request
-> after a sleep takes ~30–50 s while the container cold-starts, which looks
-> like the frontend hanging. This is expected, not a bug in the app.
->
-> On the free tier the `in-memory` fallback is effectively useless for
-> persistence — saved workflows vanish on every cold start. Use MongoDB Atlas
-> (its free M0 tier is enough) if slots need to survive.
+</details>
 
-#### Keeping the backend warm
+<details>
+<summary><b>2 · Frontend → Vercel</b></summary>
 
-[`.github/workflows/keep-alive.yml`](.github/workflows/keep-alive.yml) pings
-`/health` every 14 minutes so the service does not hit Render's ~15 minute idle
-timeout. To enable it:
+<br>
 
-**Settings → Secrets and variables → Actions → Variables → New repository variable**
+**New Project → Import**, set **Root Directory** to `frontend`.
+[`frontend/vercel.json`](./frontend/vercel.json) supplies build settings and the SPA rewrite.
+
+Add `REACT_APP_API_URL` = your Render URL (no trailing slash), then deploy.
+
+> **CRA inlines `REACT_APP_*` at build time.** Changing that variable requires a **redeploy** —
+> editing it alone will not change the shipped bundle.
+
+> **Why the build command is `CI=false npm run build`:** Vercel sets `CI=true`, and Create React App
+> treats *any* ESLint warning as fatal when it is. Warnings still appear in the log, they just no
+> longer break the build.
+
+</details>
+
+<details>
+<summary><b>3 · Close the CORS loop</b></summary>
+
+<br>
+
+Once Vercel gives you a production URL, set `ALLOWED_ORIGINS` to it on Render and redeploy the
+backend. Until you do, the browser blocks every API call with a CORS error while the network tab
+shows the requests going out — which reads like a frontend bug but isn't.
+
+</details>
+
+<details>
+<summary><b>4 · Keeping the backend warm</b></summary>
+
+<br>
+
+Render sleeps free services after ~15 minutes idle, and the next request pays a 30–50 s cold start.
+[`.github/workflows/keep-alive.yml`](.github/workflows/keep-alive.yml) pings `/health` every 14
+minutes. Enable it by adding a repository **variable** (Settings → Secrets and variables → Actions →
+Variables):
 
 | Name | Value |
 |---|---|
-| `BACKEND_URL` | `https://<your-service>.onrender.com` (no trailing slash) |
+| `BACKEND_URL` | `https://<service>.onrender.com` |
 
-Until that variable exists the job exits cleanly rather than failing, so it will
-not email you every 14 minutes. You can trigger a run by hand from the **Actions**
-tab (`Run workflow`) to check the setup.
+Without it the job exits cleanly instead of failing, so you won't get an email every 14 minutes.
 
-Two limits to be aware of before relying on this:
+Two honest limits: GitHub's scheduled runs are best-effort and drift by minutes under load,
+sometimes past the 15-minute threshold — an external monitor (UptimeRobot, cron-job.org) is the only
+hard guarantee. And Render's free tier allows 750 instance-hours per month, while keeping one
+service awake around the clock costs ~730, so a single always-on service consumes nearly the whole
+allowance.
 
-- **GitHub's scheduled runs are best-effort**, and are routinely delayed by
-  several minutes under load — sometimes past the 15-minute threshold. This
-  greatly reduces cold starts; it does not eliminate them. If you need a hard
-  guarantee, point an external monitor (UptimeRobot, cron-job.org) at `/health`
-  instead — those fire on time.
-- **Render's free tier includes 750 instance-hours per month.** Keeping one
-  service awake around the clock costs ~730 h, so a single always-on service
-  very nearly consumes the entire monthly allowance. Run a second free service
-  on the same account and you will exhaust it and be suspended for the rest of
-  the month.
-
-GitHub also disables scheduled workflows on repositories with no activity for
-60 days; a push re-enables them.
-
-### 2. Frontend → Vercel
-
-1. **New Project → Import** this repo, and set **Root Directory** to `frontend`.
-   [`frontend/vercel.json`](./frontend/vercel.json) supplies the build settings
-   and the SPA rewrite.
-2. Add one environment variable:
-
-   | Variable | Value |
-   |---|---|
-   | `REACT_APP_API_URL` | `https://<your-render-service>.onrender.com` (no trailing slash) |
-
-3. Deploy.
-
-> **Important:** Create React App inlines `REACT_APP_*` variables at **build**
-> time. Changing `REACT_APP_API_URL` requires a **redeploy** — restarting or
-> editing the variable alone will not change the shipped bundle.
-
-> **Why the build command is `CI=false npm run build`:** Vercel sets `CI=true`,
-> and Create React App treats *any* ESLint warning as a fatal error when `CI` is
-> set. This project compiles with warnings, so a plain `npm run build` fails on
-> Vercel with `Treating warnings as errors because process.env.CI = true`.
-> Warnings still appear in the build log — they are just no longer fatal.
-
-### 3. Close the CORS loop
-
-Once Vercel gives you the production URL, go back to Render and set
-`ALLOWED_ORIGINS` to it, then redeploy the backend. Until you do, the browser
-blocks every API call with a CORS error while the network tab shows the
-requests being made.
+</details>
 
 ---
 
-## ⚡ How It Works (Backend Integration)
+## Troubleshooting
 
-1. Design your pipeline on the canvas by dragging nodes from the left panel.
-2. Connect handles from outputs to inputs.
-3. Click the **Submit** button in the navbar.
-4. The frontend sends the structured `nodes` and `edges` JSON payload to the `/pipelines/parse` endpoint on the backend.
-5. An alert appears immediately showing the total **nodes count**, **edges count**, and **DAG validation status** (whether it forms a loop-free Directed Acyclic Graph).
+<details>
+<summary><b>MongoDB: <code>TLSV1_ALERT_INTERNAL_ERROR</code> / SSL handshake failed</b></summary>
+
+<br>
+
+Almost always **your IP is not on the Atlas access list**, not a TLS bug. Atlas shared tiers sit
+behind a multi-tenant proxy that routes on SNI and rejects unrecognised sources during the
+handshake, before authentication — so an access-control refusal surfaces as a TLS error.
+
+Fix: **Atlas → Network Access → Add IP Address**. Render's free tier has no static outbound IPs, so
+in practice this means `0.0.0.0/0`, which makes your database password the only barrier. Use a
+strong password and a least-privilege user (`readWrite` on `pipeline_db`, not `atlasAdmin`).
+
+A genuine TLS problem would fail from *every* machine. If it works locally and fails when deployed,
+it's the allowlist.
+
+</details>
+
+<details>
+<summary><b>Frontend loads but every API call fails</b></summary>
+
+<br>
+
+In order of likelihood: `ALLOWED_ORIGINS` on Render doesn't include your Vercel URL; or
+`REACT_APP_API_URL` was set but the frontend wasn't redeployed afterwards; or the backend is cold
+and the first request is still waking it (wait ~50 s and retry).
+
+</details>
+
+<details>
+<summary><b>Saved workflows keep disappearing</b></summary>
+
+<br>
+
+The backend is running on its in-memory fallback — check `/health`. That store is wiped on every
+restart, and free-tier instances restart constantly. Point `MONGO_DB` at an Atlas M0.
+
+</details>
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-1. **Fork** this repository and clone your fork.
-2. Create a branch: `git checkout -b fix/short-description`.
-3. Follow the setup steps above and confirm both servers run.
-4. Make your changes. Keep commits focused — one logical change each, with a
-   message that explains *why*, not just *what*.
-5. Before opening a PR, verify:
+1. **Fork** the repo and clone your fork.
+2. Branch: `git checkout -b fix/short-description`.
+3. Follow the Quick Start and confirm both servers run.
+4. Keep commits focused — one logical change each, explaining *why*, not just *what*.
+5. Before opening a PR:
    ```bash
-   cd frontend && npm run build          # must compile
+   cd frontend && npm run build
    cd ../backend && python -m py_compile main.py
    ```
-6. Push and open a Pull Request against `main`. In the description, state what
-   you changed, how you reproduced the original behaviour, and how you verified
-   the fix.
+6. Open a PR against `main` describing what changed, how you reproduced the original behaviour, and
+   how you verified the fix.
 
-**Never commit secrets.** `.env` is gitignored — use `.env.example` as the
-template and keep real keys out of the repo and out of your commit history.
+**Never commit secrets.** `.env` is gitignored — keep real keys out of the repo *and* out of your
+commit history.
+
+---
+
+<div align="center">
+<sub>Built with React Flow, Zustand, and FastAPI.</sub>
+</div>
