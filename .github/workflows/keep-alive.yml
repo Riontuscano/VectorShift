@@ -1,0 +1,77 @@
+# Keeps the Render free-tier backend from spinning down.
+# Render sleeps a free web service after ~15 minutes with no INBOUND traffic,
+# and the next request then pays a 30-50 s cold start. This workflow pings
+# /health every 14 minutes so the service stays warm.
+#
+# Setup: repo -> Settings -> Secrets and variables -> Actions -> Variables tab
+#        -> New repository variable
+#          Name:  BACKEND_URL
+#          Value: https://<your-service>.onrender.com     (no trailing slash)
+#
+# Until that variable exists the job exits cleanly instead of failing, so you
+# do not get a failure email every 14 minutes.
+#
+# Caveat worth knowing: GitHub's scheduled runs are best-effort and are often
+# delayed several minutes under load, sometimes past the 15-minute sleep
+# threshold. This reduces cold starts a lot; it does not eliminate them.
+# For a hard guarantee use an external monitor (UptimeRobot, cron-job.org).
+name: Keep Render backend awake
+
+on:
+  schedule:
+    # Every 14 minutes, just under Render's ~15 minute idle timeout.
+    - cron: '*/14 * * * *'
+  # Lets you trigger a run by hand from the Actions tab to test the setup.
+  workflow_dispatch:
+
+# Never let two pings overlap.
+concurrency:
+  group: keep-alive
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    name: Ping /health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping backend health endpoint
+        env:
+          BACKEND_URL: ${{ vars.BACKEND_URL }}
+        run: |
+          set -uo pipefail
+
+          if [ -z "${BACKEND_URL}" ]; then
+            echo "::notice::BACKEND_URL repository variable is not set - nothing to ping."
+            echo "Set it under Settings > Secrets and variables > Actions > Variables."
+            exit 0
+          fi
+
+          URL="${BACKEND_URL%/}/health"
+          echo "Pinging ${URL}"
+
+          # Start clean so a failed request cannot report a stale body.
+          rm -f /tmp/health.json
+
+          # --max-time is generous: if the service HAS gone to sleep this
+          # request is the one that wakes it, and a cold start can take ~50 s.
+          # Retry so a single blip does not mark the workflow failed.
+          HTTP_CODE=$(curl --silent --show-error --location \
+                           --retry 3 --retry-delay 15 --retry-all-errors \
+                           --max-time 90 \
+                           --write-out '%{http_code}' \
+                           --output /tmp/health.json \
+                           "${URL}") || true
+
+          echo "HTTP ${HTTP_CODE}"
+          echo "Response: $(cat /tmp/health.json 2>/dev/null || echo '<empty>')"
+
+          if [ "${HTTP_CODE}" != "200" ]; then
+            echo "::error::Backend health check failed with HTTP ${HTTP_CODE}"
+            exit 1
+          fi
+
+          echo "::notice::Backend is awake (HTTP 200)."

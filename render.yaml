@@ -1,31 +1,56 @@
+# ─────────────────────────────────────────────────────────────────────────────
 # Render Blueprint — deploys the FastAPI backend.
-# The React frontend is deployed separately on Vercel (see frontend/vercel.json).
+# The React frontend deploys separately on Vercel (see frontend/vercel.json).
 #
-# Usage: Render Dashboard -> New -> Blueprint -> pick this repo.
-# Render reads this file and provisions the service below.
+# Setup: Render Dashboard -> New -> Blueprint -> select this repository.
+# Render reads this file from the repo root and provisions the service below.
+# Values marked `sync: false` are NOT stored in git; Render prompts for them
+# during blueprint creation, or you set them later under Service -> Environment.
+# ─────────────────────────────────────────────────────────────────────────────
 services:
   - type: web
     name: vectorshift-backend
     runtime: python
     plan: free
+    region: oregon
+    branch: main
+    # Redeploy automatically when main moves (e.g. after merging an intern PR).
+    autoDeploy: true
+
+    # All Python commands below run relative to this directory.
     rootDir: backend
-    buildCommand: pip install -r requirements.txt
+
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    # $PORT is injected by Render and must be honoured, or the service is
+    # marked unhealthy and killed. Never hardcode 8000 here.
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+
+    # Render polls this until it returns 2xx before routing traffic.
     healthCheckPath: /health
+
     envVars:
+      # Render selects the interpreter from this value.
       - key: PYTHON_VERSION
         value: "3.12.7"
+
+      # Disables uvicorn auto-reload. Never run a reloader in production.
       - key: ENVIRONMENT
         value: production
-      # Comma-separated origins allowed to call this API from a browser.
-      # Set this to your Vercel URL after the frontend is deployed, e.g.
-      #   https://vectorshift.vercel.app,http://localhost:3000
+
+      # Comma-separated browser origins allowed to call this API.
+      # Leave unset and the backend defaults to "*" (any origin), which is fine
+      # for a first smoke test. Set it to your Vercel URL before going public:
+      #   https://vector-shift-riontuscanos-projects.vercel.app
+      # Multiple origins: comma-separate, no spaces, no trailing slashes.
       - key: ALLOWED_ORIGINS
         sync: false
-      # MongoDB Atlas connection string. Omit to run on the in-memory
-      # fallback store (workflows will not survive a restart).
+
+      # MongoDB Atlas connection string (mongodb+srv://...).
+      # Omit and the backend falls back to an in-memory store — workflows are
+      # then wiped on every restart, and Render free instances restart often.
       - key: MONGO_DB
         sync: false
-      # Groq API key, required only by the LLM node.
+
+      # Groq API key. Required only by the LLM node; all other nodes work without it.
       - key: GROQ_API_KEY
         sync: false

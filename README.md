@@ -130,24 +130,94 @@ Deploy the backend first — the frontend needs its URL at build time.
 
 ### 1. Backend → Render
 
-1. Push this repo to GitHub, then in the Render dashboard choose
-   **New → Blueprint** and select it. Render reads [`render.yaml`](./render.yaml)
-   and provisions a Python web service from the `backend/` directory.
-2. Set these environment variables on the service:
+Either route works. The Blueprint is less error-prone; the manual route is
+useful if you already created the service.
 
-   | Variable | Required | Notes |
-   |---|---|---|
-   | `ALLOWED_ORIGINS` | yes | Your Vercel URL, e.g. `https://your-app.vercel.app`. Comma-separate multiple origins. Leave unset to allow all (`*`). |
-   | `MONGO_DB` | no | MongoDB Atlas connection string. Omit to use the in-memory store, which is **wiped on every restart and not shared between instances**. |
-   | `GROQ_API_KEY` | no | Needed only by the LLM node. |
-   | `ENVIRONMENT` | preset | `production` — disables uvicorn auto-reload. |
+#### Option A — Blueprint (recommended)
 
-3. Render supplies `PORT` automatically; the start command binds to it.
-   Liveness is polled at `/health`.
+Push this repo to GitHub, then in the Render dashboard choose
+**New → Blueprint** and select it. Render reads [`render.yaml`](./render.yaml)
+from the repo root and provisions the service, prompting for the three secret
+values. Nothing else to configure.
+
+#### Option B — Manual setup
+
+**New → Web Service**, connect the repo, then set:
+
+| Setting | Value |
+|---|---|
+| Language / Runtime | `Python 3` |
+| Branch | `main` |
+| **Root Directory** | `backend` |
+| Build Command | `pip install --upgrade pip && pip install -r requirements.txt` |
+| Start Command | `uvicorn main:app --host 0.0.0.0 --port $PORT` |
+| Health Check Path | `/health` |
+| Instance Type | `Free` |
+
+The two settings people get wrong here are **Root Directory** — leave it blank
+and the build fails with `requirements.txt not found` — and **`$PORT`**, which
+must be passed through verbatim. Render assigns the port at runtime; a
+hardcoded `--port 8000` makes the health check time out and Render kills the
+deploy as unhealthy.
+
+#### Environment variables (both options)
+
+| Variable | Required | Notes |
+|---|---|---|
+| `ALLOWED_ORIGINS` | recommended | Your Vercel URL, e.g. `https://your-app.vercel.app`. Comma-separate multiple origins, no spaces, no trailing slashes. Leave unset and it defaults to `*`, which is fine for a smoke test but should not stay that way. |
+| `MONGO_DB` | no | MongoDB Atlas connection string. Omit to use the in-memory store, which is **wiped on every restart and not shared between instances**. |
+| `GROQ_API_KEY` | no | Needed only by the LLM node; every other node works without it. |
+| `ENVIRONMENT` | preset | `production` — disables uvicorn auto-reload. |
+| `PYTHON_VERSION` | preset | `3.12.7`. |
+| `PORT` | — | **Do not set.** Render injects it. |
+
+#### Verify
+
+```bash
+curl https://<your-service>.onrender.com/health
+# {"status":"ok","database":"mongodb"}      <- Atlas connected
+# {"status":"ok","database":"in-memory"}    <- no/unreachable MONGO_DB
+```
 
 > **Free-tier note:** Render spins idle free services down. The first request
 > after a sleep takes ~30–50 s while the container cold-starts, which looks
 > like the frontend hanging. This is expected, not a bug in the app.
+>
+> On the free tier the `in-memory` fallback is effectively useless for
+> persistence — saved workflows vanish on every cold start. Use MongoDB Atlas
+> (its free M0 tier is enough) if slots need to survive.
+
+#### Keeping the backend warm
+
+[`.github/workflows/keep-alive.yml`](.github/workflows/keep-alive.yml) pings
+`/health` every 14 minutes so the service does not hit Render's ~15 minute idle
+timeout. To enable it:
+
+**Settings → Secrets and variables → Actions → Variables → New repository variable**
+
+| Name | Value |
+|---|---|
+| `BACKEND_URL` | `https://<your-service>.onrender.com` (no trailing slash) |
+
+Until that variable exists the job exits cleanly rather than failing, so it will
+not email you every 14 minutes. You can trigger a run by hand from the **Actions**
+tab (`Run workflow`) to check the setup.
+
+Two limits to be aware of before relying on this:
+
+- **GitHub's scheduled runs are best-effort**, and are routinely delayed by
+  several minutes under load — sometimes past the 15-minute threshold. This
+  greatly reduces cold starts; it does not eliminate them. If you need a hard
+  guarantee, point an external monitor (UptimeRobot, cron-job.org) at `/health`
+  instead — those fire on time.
+- **Render's free tier includes 750 instance-hours per month.** Keeping one
+  service awake around the clock costs ~730 h, so a single always-on service
+  very nearly consumes the entire monthly allowance. Run a second free service
+  on the same account and you will exhaust it and be suspended for the rest of
+  the month.
+
+GitHub also disables scheduled workflows on repositories with no activity for
+60 days; a push re-enables them.
 
 ### 2. Frontend → Vercel
 
@@ -165,6 +235,12 @@ Deploy the backend first — the frontend needs its URL at build time.
 > **Important:** Create React App inlines `REACT_APP_*` variables at **build**
 > time. Changing `REACT_APP_API_URL` requires a **redeploy** — restarting or
 > editing the variable alone will not change the shipped bundle.
+
+> **Why the build command is `CI=false npm run build`:** Vercel sets `CI=true`,
+> and Create React App treats *any* ESLint warning as a fatal error when `CI` is
+> set. This project compiles with warnings, so a plain `npm run build` fails on
+> Vercel with `Treating warnings as errors because process.env.CI = true`.
+> Warnings still appear in the build log — they are just no longer fatal.
 
 ### 3. Close the CORS loop
 
