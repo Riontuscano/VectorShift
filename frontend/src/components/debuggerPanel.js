@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { executePipeline } from '../executor';
 import { showAlert } from '../utils/alert';
+import { apiUrl } from '../config';
 
 export const DebuggerPanel = ({ onSubmission }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -50,7 +51,7 @@ export const DebuggerPanel = ({ onSubmission }) => {
 
     try {
 
-      const response = await fetch('http://localhost:8000/pipelines/parse', {
+      const response = await fetch(apiUrl('/pipelines/parse'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -6,6 +6,7 @@ import { SubmitButton } from './submit';
 import { AnimatedThemeToggler } from './components/ui/animated-theme-toggler';
 import { showAlert, showPrompt } from './utils/alert';
 import { DebuggerPanel } from './components/debuggerPanel';
+import { apiUrl } from './config';
 
 /* ── Sidebar field styles ── */
 const sInput = {
@@ -274,7 +275,7 @@ function App() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch('http://localhost:8000/pipelines/history/list');
+      const res = await fetch(apiUrl('/pipelines/history/list'));
       if (res.ok) {
         const data = await res.json();
         setHistory(data);
@@ -294,7 +295,7 @@ function App() {
       return;
     }
     try {
-      const res = await fetch(`http://localhost:8000/pipelines/save/${encodeURIComponent(slot)}`, {
+      const res = await fetch(apiUrl(`/pipelines/save/${encodeURIComponent(slot)}`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nodes, edges })
@@ -310,7 +311,7 @@ function App() {
 
   const loadWorkflow = async (slot) => {
     try {
-      const res = await fetch(`http://localhost:8000/pipelines/load/${encodeURIComponent(slot)}`);
+      const res = await fetch(apiUrl(`/pipelines/load/${encodeURIComponent(slot)}`));
       if (res.ok) {
         const data = await res.json();
         useStore.getState().setPipeline(data.nodes, data.edges);
@@ -323,7 +324,7 @@ function App() {
 
   const clearWorkflow = async (slot) => {
     try {
-      const res = await fetch(`http://localhost:8000/pipelines/clear/${encodeURIComponent(slot)}`, {
+      const res = await fetch(apiUrl(`/pipelines/clear/${encodeURIComponent(slot)}`), {
         method: 'DELETE'
       });
       if (res.ok) {

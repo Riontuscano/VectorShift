@@ -42,6 +42,8 @@ Here is a visual preview of the workflow builder in action. You can replace the 
 
 ```bash
 ├── README.md                # Root project documentation
+├── .env.example             # Backend environment template (copy to .env)
+├── render.yaml              # Render Blueprint for the backend
 ├── screenshots/             # Workflow Builder screenshots
 │   └── dashboard_preview.png
 ├── frontend/                # React frontend application
@@ -49,11 +51,14 @@ Here is a visual preview of the workflow builder in action. You can replace the 
 │   │   ├── nodes/           # Node definitions (baseNode, textNode, apiNode, etc.)
 │   │   ├── components/      # UI components (Canvas, Toolbar)
 │   │   ├── store.js         # Zustand global state store
+│   │   ├── config.js        # API base URL (reads REACT_APP_API_URL)
 │   │   └── submit.js        # Backend API triggers
+│   ├── .env.example         # Frontend environment template
+│   ├── vercel.json          # Vercel build configuration
 │   └── package.json
 └── backend/                 # FastAPI backend application
     ├── main.py              # Backend server & pipeline parser logic
-    └── .env                 # API Keys and database credentials
+    └── requirements.txt     # Python dependencies
 ```
 
 ---
@@ -79,18 +84,20 @@ Here is a visual preview of the workflow builder in action. You can replace the 
    ```
 3. Install the required dependencies:
    ```bash
-   pip install fastapi uvicorn pymongo pydantic python-dotenv
+   pip install -r requirements.txt
    ```
-4. Create a `.env` file in the root workspace or `backend` folder with your API key if you plan to use the LLM node:
-   ```env
-   GROQ_API_KEY=your_groq_api_key_here
-   MONGO_DB=mongodb://localhost:27017/  # Optional
+4. Copy the environment template and fill it in. Every value is optional for local
+   development — without `GROQ_API_KEY` only the LLM node is unavailable, and without
+   a reachable `MONGO_DB` the backend falls back to an in-memory store automatically:
+   ```bash
+   cp ../.env.example ../.env
    ```
 5. Run the FastAPI development server:
    ```bash
    uvicorn main:app --reload
    ```
-   *The backend will be available at [http://localhost:8000](http://localhost:8000).*
+   *The backend will be available at [http://localhost:8000](http://localhost:8000).
+   Health check: [http://localhost:8000/health](http://localhost:8000/health).*
 
 ---
 
@@ -103,11 +110,68 @@ Here is a visual preview of the workflow builder in action. You can replace the 
    ```bash
    npm install
    ```
-3. Start the React development server:
+3. *(Optional)* Point the app at a non-default backend:
+   ```bash
+   cp .env.example .env.local     # then edit REACT_APP_API_URL
+   ```
+   Skip this and it defaults to `http://localhost:8000`.
+4. Start the React development server:
    ```bash
    npm run dev
    ```
    *The frontend will open in your browser at [http://localhost:3000](http://localhost:3000).*
+
+---
+
+## ☁️ Deployment
+
+The two halves deploy independently: **backend on Render**, **frontend on Vercel**.
+Deploy the backend first — the frontend needs its URL at build time.
+
+### 1. Backend → Render
+
+1. Push this repo to GitHub, then in the Render dashboard choose
+   **New → Blueprint** and select it. Render reads [`render.yaml`](./render.yaml)
+   and provisions a Python web service from the `backend/` directory.
+2. Set these environment variables on the service:
+
+   | Variable | Required | Notes |
+   |---|---|---|
+   | `ALLOWED_ORIGINS` | yes | Your Vercel URL, e.g. `https://your-app.vercel.app`. Comma-separate multiple origins. Leave unset to allow all (`*`). |
+   | `MONGO_DB` | no | MongoDB Atlas connection string. Omit to use the in-memory store, which is **wiped on every restart and not shared between instances**. |
+   | `GROQ_API_KEY` | no | Needed only by the LLM node. |
+   | `ENVIRONMENT` | preset | `production` — disables uvicorn auto-reload. |
+
+3. Render supplies `PORT` automatically; the start command binds to it.
+   Liveness is polled at `/health`.
+
+> **Free-tier note:** Render spins idle free services down. The first request
+> after a sleep takes ~30–50 s while the container cold-starts, which looks
+> like the frontend hanging. This is expected, not a bug in the app.
+
+### 2. Frontend → Vercel
+
+1. **New Project → Import** this repo, and set **Root Directory** to `frontend`.
+   [`frontend/vercel.json`](./frontend/vercel.json) supplies the build settings
+   and the SPA rewrite.
+2. Add one environment variable:
+
+   | Variable | Value |
+   |---|---|
+   | `REACT_APP_API_URL` | `https://<your-render-service>.onrender.com` (no trailing slash) |
+
+3. Deploy.
+
+> **Important:** Create React App inlines `REACT_APP_*` variables at **build**
+> time. Changing `REACT_APP_API_URL` requires a **redeploy** — restarting or
+> editing the variable alone will not change the shipped bundle.
+
+### 3. Close the CORS loop
+
+Once Vercel gives you the production URL, go back to Render and set
+`ALLOWED_ORIGINS` to it, then redeploy the backend. Until you do, the browser
+blocks every API call with a CORS error while the network tab shows the
+requests being made.
 
 ---
 
@@ -118,3 +182,24 @@ Here is a visual preview of the workflow builder in action. You can replace the 
 3. Click the **Submit** button in the navbar.
 4. The frontend sends the structured `nodes` and `edges` JSON payload to the `/pipelines/parse` endpoint on the backend.
 5. An alert appears immediately showing the total **nodes count**, **edges count**, and **DAG validation status** (whether it forms a loop-free Directed Acyclic Graph).
+
+---
+
+## 🤝 Contributing
+
+1. **Fork** this repository and clone your fork.
+2. Create a branch: `git checkout -b fix/short-description`.
+3. Follow the setup steps above and confirm both servers run.
+4. Make your changes. Keep commits focused — one logical change each, with a
+   message that explains *why*, not just *what*.
+5. Before opening a PR, verify:
+   ```bash
+   cd frontend && npm run build          # must compile
+   cd ../backend && python -m py_compile main.py
+   ```
+6. Push and open a Pull Request against `main`. In the description, state what
+   you changed, how you reproduced the original behaviour, and how you verified
+   the fix.
+
+**Never commit secrets.** `.env` is gitignored — use `.env.example` as the
+template and keep real keys out of the repo and out of your commit history.

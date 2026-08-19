@@ -13,12 +13,25 @@ load_dotenv()
 if not os.getenv("GROQ_API_KEY"):
     load_dotenv(dotenv_path="../.env")
 
-app = FastAPI()
+app = FastAPI(title="VectorShift Pipeline API")
+
+# Comma-separated list of allowed browser origins, e.g.
+#   ALLOWED_ORIGINS=https://my-app.vercel.app,http://localhost:3000
+# Defaults to "*" so local development works with no configuration.
+_origins_raw = os.getenv("ALLOWED_ORIGINS", "*").strip()
+if _origins_raw == "*":
+    allowed_origins = ["*"]
+    # A wildcard origin and credentialed requests are mutually exclusive per the
+    # CORS spec, and this API is authenticated by neither cookies nor sessions.
+    allow_credentials = False
+else:
+    allowed_origins = [o.strip().rstrip("/") for o in _origins_raw.split(",") if o.strip()]
+    allow_credentials = True
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=allowed_origins,
+    allow_credentials=allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -60,6 +73,12 @@ class PipelinePayload(BaseModel):
 @app.get('/')
 def read_root():
     return {'Ping': 'Pong'}
+
+
+@app.get('/health')
+def health_check():
+    """Liveness probe for the hosting platform."""
+    return {'status': 'ok', 'database': 'mongodb' if use_db else 'in-memory'}
 
 
 @app.post('/pipelines/parse')
@@ -372,4 +391,8 @@ def verify_dag(nodes: List[Dict[str, Any]], edges: List[Dict[str, Any]]) -> bool
 
 if __name__ == '__main__':
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    # Hosting platforms (Render, Railway, Fly, Heroku) inject the port to bind.
+    port = int(os.getenv("PORT", "8000"))
+    # Auto-reload is a development convenience only; never enable it in production.
+    reload = os.getenv("ENVIRONMENT", "development").lower() == "development"
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=reload)

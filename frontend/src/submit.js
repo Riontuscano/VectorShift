@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useStore } from './store';
 import { executePipeline } from './executor';
+import { apiUrl } from './config';
 
 export const SubmitButton = ({ onSubmission }) => {
   const nodes = useStore(state => state.nodes);
@@ -17,7 +18,7 @@ export const SubmitButton = ({ onSubmission }) => {
 
     try {
       // 1. Query backend for pipeline topology DAG check
-      const response = await fetch('http://localhost:8000/pipelines/parse', {
+      const response = await fetch(apiUrl('/pipelines/parse'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

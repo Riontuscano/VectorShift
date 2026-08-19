@@ -1,6 +1,7 @@
 
 import { useStore } from './store';
 import { showAlert } from './utils/alert';
+import { apiUrl } from './config';
 
 
 export const topologicalSort = (nodes, edges) => {
@@ -68,7 +69,7 @@ export const executeNode = async (node, inputs) => {
       const system = inputs[`${node.id}-system`] || '';
       const prompt = inputs[`${node.id}-prompt`] || '';
       try {
-        const res = await fetch('http://localhost:8000/pipelines/llm', {
+        const res = await fetch(apiUrl('/pipelines/llm'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -90,7 +91,7 @@ export const executeNode = async (node, inputs) => {
       const method = d.method || 'GET';
       const payload = inputs[`${node.id}-payload`] || null;
       try {
-        const res = await fetch('http://localhost:8000/pipelines/api_proxy', {
+        const res = await fetch(apiUrl('/pipelines/api_proxy'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

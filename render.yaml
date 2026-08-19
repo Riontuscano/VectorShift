@@ -1,0 +1,31 @@
+# Render Blueprint — deploys the FastAPI backend.
+# The React frontend is deployed separately on Vercel (see frontend/vercel.json).
+#
+# Usage: Render Dashboard -> New -> Blueprint -> pick this repo.
+# Render reads this file and provisions the service below.
+services:
+  - type: web
+    name: vectorshift-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      - key: ENVIRONMENT
+        value: production
+      # Comma-separated origins allowed to call this API from a browser.
+      # Set this to your Vercel URL after the frontend is deployed, e.g.
+      #   https://vectorshift.vercel.app,http://localhost:3000
+      - key: ALLOWED_ORIGINS
+        sync: false
+      # MongoDB Atlas connection string. Omit to run on the in-memory
+      # fallback store (workflows will not survive a restart).
+      - key: MONGO_DB
+        sync: false
+      # Groq API key, required only by the LLM node.
+      - key: GROQ_API_KEY
+        sync: false
