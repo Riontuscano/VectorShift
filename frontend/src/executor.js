@@ -2,9 +2,7 @@
 import { useStore } from './store';
 import { showAlert } from './utils/alert';
 
-/**
- * Topologically sorts the canvas DAG using Kahn's Algorithm.
- */
+
 export const topologicalSort = (nodes, edges) => {
   const adj = {};
   const inDegree = {};
@@ -41,15 +39,13 @@ export const topologicalSort = (nodes, edges) => {
   }
 
   if (order.length < nodes.length) {
-    return null; // Cycle detected
+    return null;
   }
 
   return order.map(id => nodes.find(n => n.id === id));
 };
 
-/**
- * Executes a single node's processing logic based on its inputs and properties.
- */
+
 export const executeNode = async (node, inputs) => {
   const d = node.data || {};
 
@@ -64,7 +60,7 @@ export const executeNode = async (node, inputs) => {
       Object.entries(inputs).forEach(([key, val]) => {
         const varName = key.replace(`${node.id}-`, '');
         const regex = new RegExp(`\\{\\{\\s*${varName}\\s*\\}\\}`, 'g');
-        template = template.replace(regex, val ?? '');
+        template.replace(regex, val ?? '');
       });
       return { [`${node.id}-output`]: template };
     }
@@ -127,8 +123,8 @@ export const executeNode = async (node, inputs) => {
       else if (condition === 'contains') matched = inputVal.includes(checkValue);
       else if (condition === 'startsWith') matched = inputVal.startsWith(checkValue);
       else if (condition === 'endsWith') matched = inputVal.endsWith(checkValue);
-      else if (condition === 'greaterThan') matched = (Number(inputVal) > Number(checkValue));
-      else if (condition === 'lessThan') matched = (Number(inputVal) < Number(checkValue));
+      else if (condition === 'greaterThan') matched = (inputVal > checkValue);
+      else if (condition === 'lessThan') matched = (inputVal < checkValue);
       else if (condition === 'isEmpty') matched = (inputVal.trim() === '');
       else if (condition === 'isNotEmpty') matched = (inputVal.trim() !== '');
       else if (condition === 'regex') {
@@ -171,7 +167,7 @@ export const executeNode = async (node, inputs) => {
     case 'switch': {
       const cases = d.cases || ['Case 1'];
       const inputVal = String(inputs[`${node.id}-input`] ?? '');
-      
+
       let matchedIndex = -1;
       for (let i = 0; i < cases.length; i++) {
         if (inputVal === cases[i]) {
@@ -179,7 +175,7 @@ export const executeNode = async (node, inputs) => {
           break;
         }
       }
-      
+
       if (matchedIndex !== -1) {
         return { [`${node.id}-case-${matchedIndex}`]: inputVal };
       } else {
@@ -189,13 +185,13 @@ export const executeNode = async (node, inputs) => {
     case 'codeRunner': {
       const code = d.code || 'return inputs.a + inputs.b;';
       const inputPortsString = d.inputPorts || 'a, b';
-      
+
       const parsedInputs = {};
       const portNames = inputPortsString.split(',').map(p => p.trim()).filter(Boolean);
       portNames.forEach(p => {
-        parsedInputs[p] = inputs[`${node.id}-${p}`];
+        parsedInputs[p] = inputs[p];
       });
-      
+
       try {
         const fn = new Function('inputs', code);
         const result = fn(parsedInputs);
@@ -208,9 +204,9 @@ export const executeNode = async (node, inputs) => {
       const notifType = d.notifType || 'Alert';
       const messageTemplate = d.messageTemplate || 'Pipeline finished with value: {{input}}';
       const inputVal = inputs[`${node.id}-input`] || '';
-      
+
       const message = messageTemplate.replace(/\{\{\s*input\s*\}\}/g, String(inputVal));
-      
+
       if (notifType === 'Slack Webhook') {
         const url = d.webhookUrl || '';
         if (url) {
@@ -235,10 +231,7 @@ export const executeNode = async (node, inputs) => {
   }
 };
 
-/**
- * Orchestrates the execution of the entire workflow.
- * Supports Parallel Execution in normal mode, and Step-by-Step Stepping in debug mode.
- */
+
 export const executePipeline = async ({
   nodes,
   edges,
@@ -255,16 +248,15 @@ export const executePipeline = async ({
   });
 
   const nodeOutputs = {};
-  
-  // Track in-degrees of nodes in the active graph
+
   const inDegree = {};
-  const adj = {}; // sourceNodeId -> array of { target, targetHandle, sourceHandle }
-  
+  const adj = {};
+
   nodes.forEach(node => {
     inDegree[node.id] = 0;
     adj[node.id] = [];
   });
-  
+
   edges.forEach(edge => {
     const src = edge.source;
     const tgt = edge.target;
@@ -281,7 +273,6 @@ export const executePipeline = async ({
   });
 
   if (isDebugMode) {
-    // === Sequential Stepping Debug Mode ===
     const sortedNodes = topologicalSort(nodes, edges);
     if (!sortedNodes) {
       onSubmission(null, 'Topological sort failed. Graph contains cycles.');
@@ -296,14 +287,14 @@ export const executePipeline = async ({
     const skippedNodes = new Set();
 
     for (const node of sortedNodes) {
-      // Check if debug was cancelled/aborted
+
       const currentDbgState = useStore.getState();
       if (!currentDbgState.isDebugging && currentDbgState.currentNodeId === null) {
         addExecutionLog({ status: 'warning', message: 'Debugging aborted by user.' });
         return;
       }
 
-      // Check if this node should be skipped
+
       const incomingEdges = edges.filter(e => e.target === node.id);
       let shouldSkip = false;
       if (incomingEdges.length > 0) {
@@ -329,14 +320,13 @@ export const executePipeline = async ({
         continue;
       }
 
-      // Gather resolved inputs
+
       const resolvedInputs = {};
       incomingEdges.forEach(edge => {
         const sourceVal = (nodeOutputs[edge.source] || {})[edge.sourceHandle];
         resolvedInputs[edge.targetHandle] = sourceVal;
       });
 
-      // Pause before running this node
       let stepResolver = null;
       const stepPromise = new Promise(resolve => {
         stepResolver = resolve;
@@ -344,7 +334,7 @@ export const executePipeline = async ({
 
       setDebuggingState({
         isDebugging: true,
-        debugPaused: true,
+        debugPaused: false,
         currentNodeId: node.id,
         debugResolvePromise: stepResolver,
       });
@@ -374,10 +364,10 @@ export const executePipeline = async ({
         const outputs = await executeNode(node, resolvedInputs);
         const duration = (performance.now() - startTime).toFixed(1);
         nodeOutputs[node.id] = outputs;
-        
+
         updateNodeField(node.id, 'status', 'completed');
         updateNodeField(node.id, 'outputVal', JSON.stringify(outputs));
-        
+
         addExecutionLog({
           nodeId: node.id,
           nodeType: node.type,
@@ -398,7 +388,7 @@ export const executePipeline = async ({
         onSubmission(null, `Error at node ${node.id}: ${err.message}`);
         return;
       }
-      
+
       // Delay for visual trace effect
       await new Promise(r => setTimeout(r, 600));
     }
@@ -445,7 +435,7 @@ export const executePipeline = async ({
         });
       } else {
         updateNodeField(node.id, 'status', 'running');
-        
+
         // Resolve inputs
         const resolvedInputs = {};
         incomingEdges.forEach(edge => {
@@ -508,7 +498,7 @@ export const executePipeline = async ({
 
       // Recursively run next layers
       if (nextNodes.length > 0) {
-        await Promise.all(nextNodes.map(n => runNodeProcess(n)));
+        Promise.all(nextNodes.map(n => runNodeProcess(n)));
       }
     };
 

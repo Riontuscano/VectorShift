@@ -11,14 +11,14 @@ export const DebuggerPanel = ({ onSubmission }) => {
   const addExecutionLog = useStore(state => state.addExecutionLog);
   const clearExecutionLogs = useStore(state => state.clearExecutionLogs);
   const setDebuggingState = useStore(state => state.setDebuggingState);
-  
+
   const executionLogs = useStore(state => state.executionLogs);
   const isDebugging = useStore(state => state.isDebugging);
   const debugPaused = useStore(state => state.debugPaused);
   const currentNodeId = useStore(state => state.currentNodeId);
   const triggerStep = useStore(state => state.triggerStep);
   const triggerResume = useStore(state => state.triggerResume);
-  
+
   const [isRunning, setIsRunning] = useState(false);
 
   const startExecution = async (debugMode = false) => {
@@ -26,12 +26,12 @@ export const DebuggerPanel = ({ onSubmission }) => {
       showAlert('No Nodes', 'Create some nodes on the canvas first!', 'warning');
       return;
     }
-    
+
     setIsRunning(true);
-    setIsOpen(true); // Open the panel to show logs
+    setIsOpen(true);
     clearExecutionLogs();
-    
-    // Set debugging state initially
+
+    // Set debugging state, put for initial testing 
     if (debugMode) {
       setDebuggingState({
         isDebugging: true,
@@ -49,7 +49,7 @@ export const DebuggerPanel = ({ onSubmission }) => {
     }
 
     try {
-      // Query backend for DAG validation
+
       const response = await fetch('http://localhost:8000/pipelines/parse', {
         method: 'POST',
         headers: {
@@ -93,7 +93,7 @@ export const DebuggerPanel = ({ onSubmission }) => {
       onSubmission(null, err.message || 'Failed to execute pipeline.');
     } finally {
       setIsRunning(false);
-      // Reset state if not debugging
+
       if (!useStore.getState().isDebugging) {
         setDebuggingState({
           isDebugging: false,
@@ -117,11 +117,11 @@ export const DebuggerPanel = ({ onSubmission }) => {
       debugResolvePromise: null,
     });
     setIsRunning(false);
-    
+
     nodes.forEach(node => {
       updateNodeField(node.id, 'status', 'idle');
     });
-    
+
     addExecutionLog({
       status: 'warning',
       message: 'Execution aborted by user.',
@@ -167,35 +167,35 @@ export const DebuggerPanel = ({ onSubmission }) => {
       }}>
         {/* Left: Title & Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div 
+          <div
             onClick={() => setIsOpen(!isOpen)}
-            style={{ 
-              fontSize: '14px', 
-              fontWeight: '700', 
-              color: 'var(--text-primary)', 
+            style={{
+              fontSize: '14px',
+              fontWeight: '700',
+              color: 'var(--text-primary)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '6px'
             }}
           >
-            <svg 
-              width="12" 
-              height="12" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
               strokeWidth="2.5"
               style={{ transform: isOpen ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 150ms' }}
             >
-              <polyline points="6 9 12 15 18 9"/>
+              <polyline points="6 9 12 15 18 9" />
             </svg>
             EXECUTION LOGS & DEBUGGER {executionLogs.length > 0 && `(${executionLogs.length})`}
           </div>
 
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
             {/* Run Normal */}
-            <button 
+            <button
               onClick={() => startExecution(false)}
               disabled={isRunning}
               style={{
@@ -213,13 +213,13 @@ export const DebuggerPanel = ({ onSubmission }) => {
               }}
             >
               <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="5 3 19 12 5 21 5 3"/>
+                <polygon points="5 3 19 12 5 21 5 3" />
               </svg>
               Run
             </button>
 
             {/* Run Step-by-Step Debug */}
-            <button 
+            <button
               onClick={() => startExecution(true)}
               disabled={isRunning}
               style={{
@@ -237,13 +237,13 @@ export const DebuggerPanel = ({ onSubmission }) => {
               }}
             >
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/>
+                <circle cx="12" cy="12" r="10" /><polygon points="10 8 16 12 10 16 10 8" />
               </svg>
               Debug
             </button>
 
             {/* Step Button */}
-            <button 
+            <button
               onClick={triggerStep}
               disabled={!isDebugging || !debugPaused}
               style={{
@@ -261,13 +261,13 @@ export const DebuggerPanel = ({ onSubmission }) => {
               }}
             >
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/>
+                <polygon points="5 4 15 12 5 20 5 4" /><line x1="19" y1="5" x2="19" y2="19" />
               </svg>
               Step
             </button>
 
             {/* Resume Button */}
-            <button 
+            <button
               onClick={triggerResume}
               disabled={!isDebugging || !debugPaused}
               style={{
@@ -285,14 +285,14 @@ export const DebuggerPanel = ({ onSubmission }) => {
               }}
             >
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <polygon points="6 4 20 12 6 20 6 4"/>
+                <polygon points="6 4 20 12 6 20 6 4" />
               </svg>
               Resume
             </button>
 
             {/* Stop Button */}
             {isRunning && (
-              <button 
+              <button
                 onClick={handleStop}
                 style={{
                   padding: '4px 10px',
@@ -309,7 +309,7 @@ export const DebuggerPanel = ({ onSubmission }) => {
                 }}
               >
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-                  <rect x="4" y="4" width="16" height="16" rx="2"/>
+                  <rect x="4" y="4" width="16" height="16" rx="2" />
                 </svg>
                 Stop
               </button>
@@ -333,7 +333,7 @@ export const DebuggerPanel = ({ onSubmission }) => {
               {debugPaused ? `Paused: ${currentNodeId}` : 'Running...'}
             </div>
           )}
-          
+
           <button
             onClick={clearExecutionLogs}
             disabled={executionLogs.length === 0}
@@ -378,8 +378,8 @@ export const DebuggerPanel = ({ onSubmission }) => {
             executionLogs.map((log) => {
               const hasPayload = log.inputs || log.outputs;
               return (
-                <div 
-                  key={log.id} 
+                <div
+                  key={log.id}
                   style={{
                     fontSize: '13px',
                     borderLeft: `3px solid ${getStatusColor(log.status)}`,
@@ -388,8 +388,8 @@ export const DebuggerPanel = ({ onSubmission }) => {
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '4px',
-                    background: currentNodeId === log.nodeId && log.status === 'running' 
-                      ? 'var(--accent-soft)' 
+                    background: currentNodeId === log.nodeId && log.status === 'running'
+                      ? 'var(--accent-soft)'
                       : 'transparent',
                     borderRadius: '0 4px 4px 0',
                   }}

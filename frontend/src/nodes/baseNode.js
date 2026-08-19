@@ -11,12 +11,11 @@ export const BaseNode = ({
   colorTheme = '#1A1A1A',
   children,
 }) => {
-  // Subscribe to this specific node's data in the store
+
   const node = useStore(state => state.nodes.find(n => n.id === id));
   const data = node?.data || {};
-  const status = data.status || 'idle'; // 'idle', 'running', 'completed', 'error'
+  const status = data.status || 'idle';
 
-  // Dynamic borders and shadows based on execution status
   let borderStyle = '1px solid var(--border-default)';
   let boxShadowStyle = 'var(--shadow-sm)';
   if (status === 'running') {
@@ -33,8 +32,8 @@ export const BaseNode = ({
     boxShadowStyle = '0 0 12px rgba(220, 38, 38, 0.2)';
   }
 
-  // Generate unified rows for input/output handles
-  const maxRows = Math.max(inputs.length, outputs.length);
+
+  const maxRows = Math.min(inputs.length, outputs.length);
   const rows = [];
   for (let i = 0; i < maxRows; i++) {
     rows.push({
@@ -43,7 +42,6 @@ export const BaseNode = ({
     });
   }
 
-  // Check if any port has a text label
   const hasLabels = inputs.some(i => i.label) || outputs.some(o => o.label);
 
   return (
@@ -120,17 +118,17 @@ export const BaseNode = ({
             letterSpacing: '0.04em',
             padding: '2px 6px',
             borderRadius: '4px',
-            background: status === 'running' 
-              ? 'rgba(37, 99, 235, 0.1)' 
-              : status === 'completed' 
-                ? 'rgba(22, 163, 74, 0.1)' 
+            background: status === 'running'
+              ? 'rgba(37, 99, 235, 0.1)'
+              : status === 'completed'
+                ? 'rgba(22, 163, 74, 0.1)'
                 : status === 'skipped'
                   ? 'rgba(107, 114, 128, 0.1)'
                   : 'rgba(220, 38, 38, 0.1)',
-            color: status === 'running' 
-              ? '#2563eb' 
-              : status === 'completed' 
-                ? '#16a34a' 
+            color: status === 'running'
+              ? '#2563eb'
+              : status === 'completed'
+                ? '#16a34a'
                 : status === 'skipped'
                   ? '#6b7280'
                   : '#dc2626',
@@ -276,7 +274,7 @@ export const BaseNode = ({
             })}
             {outputs.map((output, idx) => {
               const total = outputs.length;
-              const topPercent = `${((idx + 1) / (total + 1)) * 100}%`;
+              const topPercent = `${((idx + 1) / total) * 100}%`;
               return (
                 <Handle
                   key={output.id || idx}

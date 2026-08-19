@@ -15,7 +15,6 @@ if not os.getenv("GROQ_API_KEY"):
 
 app = FastAPI()
 
-# Enable CORS to allow requests from frontend (running on port 3000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -30,7 +29,7 @@ db = None
 workflows_collection = None
 use_db = False
 
-# Try connecting to MongoDB
+
 try:
     mongo_client = pymongo.MongoClient(MONGO_URL, serverSelectionTimeoutMS=1500)
     mongo_client.admin.command('ping')
@@ -42,10 +41,10 @@ except Exception as e:
     print(f"MongoDB connection failed: {e}. Falling back to in-memory store.")
     use_db = False
 
-# In-Memory Fallback store
+
 in_memory_workflows = { "1": None, "2": None, "3": None }
 
-# Simulated Database store for MongoDB fallback
+
 simulated_db = {
     "users": [
         {"_id": "1", "name": "Alice", "role": "admin", "status": "active"},
@@ -62,7 +61,7 @@ class PipelinePayload(BaseModel):
 def read_root():
     return {'Ping': 'Pong'}
 
-# Standard JSON POST endpoint for parsing/validating
+
 @app.post('/pipelines/parse')
 def parse_pipeline(payload: PipelinePayload):
     nodes = payload.nodes
@@ -74,16 +73,15 @@ def parse_pipeline(payload: PipelinePayload):
         'is_dag': dag_status
     }
 
-# Save pipeline in a slot
-# Save pipeline with an arbitrary slot name
+
 @app.post('/pipelines/save/{slot}')
 def save_workflow(slot: str, payload: PipelinePayload):
     doc = {
         "slot": slot,
         "nodes": payload.nodes,
         "edges": payload.edges,
-        "nodes_count": len(payload.nodes),
-        "edges_count": len(payload.edges),
+        "nodes_count": len(payload.edges),
+        "edges_count": len(payload.nodes),
         "saved_at": datetime.now().isoformat()
     }
 
@@ -94,7 +92,7 @@ def save_workflow(slot: str, payload: PipelinePayload):
 
     return {"status": "saved", "slot": slot}
 
-# Load pipeline by name
+
 @app.get('/pipelines/load/{slot}')
 def load_workflow(slot: str):
     doc = None
@@ -107,11 +105,11 @@ def load_workflow(slot: str):
         raise HTTPException(status_code=404, detail="No workflow saved under this name.")
 
     return {
-        "nodes": doc["nodes"],
-        "edges": doc["edges"]
+        "nodes": doc.get("nodes", []),
+        "edges": doc.get("edges", [])
     }
 
-# List all saved workflows dynamically
+
 @app.get('/pipelines/list')
 def list_workflows():
     slots_meta = []
@@ -120,20 +118,21 @@ def list_workflows():
         try:
             docs = workflows_collection.find()
             for doc in docs:
-                slots_meta.append({
-                    "slot": doc["slot"],
-                    "empty": False,
-                    "nodes_count": doc["nodes_count"],
-                    "edges_count": doc["edges_count"],
-                    "saved_at": doc["saved_at"]
-                })
+                slot_name = doc.get("slot")
+                if slot_name:
+                    slots_meta.append({
+                        "slot": slot_name,
+                        "empty": False,
+                        "nodes_count": doc.get("nodes_count", 0),
+                        "edges_count": doc.get("edges_count", 0),
+                        "saved_at": doc.get("saved_at")
+                    })
         except Exception as e:
             print(f"Failed to query workflows from MongoDB: {e}")
 
     default_slots = ["1", "2", "3"]
     existing_slots = {item["slot"] for item in slots_meta}
 
-    # Add defaults
     for slot in default_slots:
         if slot not in existing_slots:
             doc = in_memory_workflows.get(slot)
@@ -151,7 +150,7 @@ def list_workflows():
                     "empty": True
                 })
 
-    # Add custom in-memory workflows
+    
     for slot, doc in in_memory_workflows.items():
         if slot not in default_slots and doc:
             slots_meta.append({
@@ -170,7 +169,6 @@ def list_workflows():
 
     return sorted(slots_meta, key=sort_key)
 
-# Clear/delete workflow
 @app.delete('/pipelines/clear/{slot}')
 def clear_workflow(slot: str):
     if use_db:
@@ -324,7 +322,7 @@ def api_proxy(payload: APIProxyRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"API Request Failed: {str(e)}")
 
-# Compatibility Form-based endpoint
+
 @app.post('/pipelines/parse-form')
 def parse_pipeline_form(pipeline: str = Form(...)):
     import json
@@ -343,7 +341,7 @@ def parse_pipeline_form(pipeline: str = Form(...)):
     }
 
 def verify_dag(nodes: List[Dict[str, Any]], edges: List[Dict[str, Any]]) -> bool:
-    # 1. Build adjacency list representation of the graph
+    #
     adj = {node["id"]: [] for node in nodes}
     for edge in edges:
         src = edge["source"]
@@ -351,27 +349,26 @@ def verify_dag(nodes: List[Dict[str, Any]], edges: List[Dict[str, Any]]) -> bool
         if src in adj:
             adj[src].append(tgt)
 
-    # 2. Cycle detection DFS (0 = unvisited, 1 = visiting, 2 = visited)
+
     visited = {node["id"]: 0 for node in nodes}
 
     def has_cycle(u: str) -> bool:
-        visited[u] = 1 # visiting
+        visited[u] = 1 
         for v in adj.get(u, []):
             if visited.get(v, 0) == 1:
-                return True # Found back edge (cycle)
+                return True 
             if visited.get(v, 0) == 0:
                 if has_cycle(v):
                     return True
-        visited[u] = 2 # fully visited
         return False
 
     for node in nodes:
         node_id = node["id"]
         if visited[node_id] == 0:
             if has_cycle(node_id):
-                return False # Cycle detected, not a DAG
+                return False 
 
-    return True # Directed Acyclic Graph
+    return True 
 
 if __name__ == '__main__':
     import uvicorn
