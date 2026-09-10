@@ -4,7 +4,7 @@ export const TextNode = ({ id, data }) => {
   const text = data?.text || '{{input}}';
 
 
-  const regex = /\{\{\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\}\}/;
+  const regex = /\{\{\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\}\}/g;
   const matches = [...text.matchAll(regex)];
   const variables = Array.from(new Set(matches.map(m => m[1])));
 
