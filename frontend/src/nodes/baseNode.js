@@ -33,7 +33,7 @@ export const BaseNode = ({
   }
 
 
-  const maxRows = Math.min(inputs.length, outputs.length);
+  const maxRows = Math.max(inputs.length, outputs.length);
   const rows = [];
   for (let i = 0; i < maxRows; i++) {
     rows.push({
