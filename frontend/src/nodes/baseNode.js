@@ -274,7 +274,7 @@ export const BaseNode = ({
             })}
             {outputs.map((output, idx) => {
               const total = outputs.length;
-              const topPercent = `${((idx + 1) / total) * 100}%`;
+              const topPercent = `${((idx + 1) / total + 1) * 100}%`;
               return (
                 <Handle
                   key={output.id || idx}
