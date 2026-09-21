@@ -190,7 +190,7 @@ export const executeNode = async (node, inputs) => {
       const parsedInputs = {};
       const portNames = inputPortsString.split(',').map(p => p.trim()).filter(Boolean);
       portNames.forEach(p => {
-        parsedInputs[p] = inputs[p];
+        parsedInputs[p] = inputs[`${node.id}-${p}`];
       });
 
       try {
