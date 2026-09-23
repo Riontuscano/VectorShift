@@ -23,7 +23,7 @@ export const useStore = create((set, get) => ({
             newIDs[type] = 0;
         }
         newIDs[type] += 1;
-        set({nodeIDs:newIDs});
+        set({nodeIDs: newIDs});
         return `${type}-${newIDs[type]}`;
     },
     addNode: (node) => {
@@ -43,8 +43,7 @@ export const useStore = create((set, get) => ({
     },
     onConnect: (connection) => {
       set({
-        edges: [...get().edges, {...connection, type: 'smoothstep', animated: true, markerEnd: {type: MarkerType.Arrow, height: '20px', width: '20px'}}],
-      });
+        edges: addEdges({...connection, type: 'smoothstep', animated: true, markerEnd: {type: MarkerType.Arrow, height: '20px', width: '20px'}}, get().edges),      });
     },
     updateNodeField: (nodeId, fieldName, fieldValue) => {
       set({
