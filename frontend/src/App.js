@@ -275,7 +275,7 @@ function App() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch(apiUrl('/pipelines/history/list'));
+      const res = await fetch('http://localhost:8000/pipelines/list');
       if (res.ok) {
         const data = await res.json();
         setHistory(data);
