@@ -99,8 +99,8 @@ def save_workflow(slot: str, payload: PipelinePayload):
         "slot": slot,
         "nodes": payload.nodes,
         "edges": payload.edges,
-        "nodes_count": len(payload.edges),
-        "edges_count": len(payload.nodes),
+       "nodes_count": len(payload.nodes),
+       "edges_count": len(payload.edges),
         "saved_at": datetime.now().isoformat()
     }
 
