@@ -335,7 +335,7 @@ export const executePipeline = async ({
 
       setDebuggingState({
         isDebugging: true,
-        debugPaused: false,
+        debugPaused: true,
         currentNodeId: node.id,
         debugResolvePromise: stepResolver,
       });
