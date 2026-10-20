@@ -379,6 +379,7 @@ def verify_dag(nodes: List[Dict[str, Any]], edges: List[Dict[str, Any]]) -> bool
             if visited.get(v, 0) == 0:
                 if has_cycle(v):
                     return True
+        visited[u]=2
         return False
 
     for node in nodes:
