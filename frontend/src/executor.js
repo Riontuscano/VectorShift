@@ -499,7 +499,7 @@ export const executePipeline = async ({
 
       // Recursively run next layers
       if (nextNodes.length > 0) {
-        Promise.all(nextNodes.map(n => runNodeProcess(n)));
+        await Promise.all(nextNodes.map(n => runNodeProcess(n)));
       }
     };
 
