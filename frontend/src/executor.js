@@ -124,8 +124,8 @@ export const executeNode = async (node, inputs) => {
       else if (condition === 'contains') matched = inputVal.includes(checkValue);
       else if (condition === 'startsWith') matched = inputVal.startsWith(checkValue);
       else if (condition === 'endsWith') matched = inputVal.endsWith(checkValue);
-      else if (condition === 'greaterThan') matched = (inputVal > checkValue);
-      else if (condition === 'lessThan') matched = (inputVal < checkValue);
+      else if (condition === 'greaterThan') matched = (Number(inputVal) > Number(checkValue));
+      else if (condition === 'lessThan') matched = (Number(inputVal) < Number(checkValue));
       else if (condition === 'isEmpty') matched = (inputVal.trim() === '');
       else if (condition === 'isNotEmpty') matched = (inputVal.trim() !== '');
       else if (condition === 'regex') {
