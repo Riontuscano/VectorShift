@@ -61,7 +61,7 @@ export const executeNode = async (node, inputs) => {
       Object.entries(inputs).forEach(([key, val]) => {
         const varName = key.replace(`${node.id}-`, '');
         const regex = new RegExp(`\\{\\{\\s*${varName}\\s*\\}\\}`, 'g');
-        template.replace(regex, val ?? '');
+        template = template.replace(regex, val ?? '');
       });
       return { [`${node.id}-output`]: template };
     }
